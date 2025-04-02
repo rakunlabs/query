@@ -62,7 +62,7 @@ func Parse(query string) (*Query, error) {
 
 		kv := strings.SplitN(pair, "=", 2)
 		if len(kv) != 2 {
-			return nil, fmt.Errorf("invalid query parameter: %s", pair)
+			kv = append(kv, "")
 		}
 
 		key := kv[0]
@@ -71,18 +71,26 @@ func Parse(query string) (*Query, error) {
 		switch {
 		case key == "fields":
 			// Handle field selection
-			if value != "" {
-				for _, field := range strings.Split(value, ",") {
-					if field != "" {
-						result.Select = append(result.Select, field)
-					}
+			if value == "" {
+				continue
+			}
+
+			for _, field := range strings.Split(value, ",") {
+				if field != "" {
+					result.Select = append(result.Select, field)
 				}
 			}
 		case key == "sort":
 			// Handle sorting
+			if value == "" {
+				continue
+			}
 			result.Order = parseSort(value)
 		case key == "limit":
 			// Handle limit
+			if value == "" {
+				continue
+			}
 			limit, err := strconv.ParseUint(value, 10, 64)
 			if err != nil {
 				return nil, fmt.Errorf("invalid limit value: %s", value)
@@ -90,6 +98,9 @@ func Parse(query string) (*Query, error) {
 			result.Limit = &limit
 		case key == "offset":
 			// Handle offset
+			if value == "" {
+				continue
+			}
 			offset, err := strconv.ParseUint(value, 10, 64)
 			if err != nil {
 				return nil, fmt.Errorf("invalid offset value: %s", value)

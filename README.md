@@ -1,6 +1,12 @@
 # Query
 
-Convert rest-API query to goqu's expressions.
+[![License](https://img.shields.io/github/license/worldline-go/query?color=red&style=flat-square)](https://raw.githubusercontent.com/worldline-go/query/main/LICENSE)
+[![Coverage](https://img.shields.io/sonar/coverage/worldline-go_query?logo=sonarcloud&server=https%3A%2F%2Fsonarcloud.io&style=flat-square)](https://sonarcloud.io/summary/overall?id=worldline-go_query)
+[![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/worldline-go/query/test.yml?branch=main&logo=github&style=flat-square&label=ci)](https://github.com/worldline-go/query/actions)
+[![Go Report Card](https://goreportcard.com/badge/github.com/worldline-go/query?style=flat-square)](https://goreportcard.com/report/github.com/worldline-go/query)
+[![Go PKG](https://raw.githubusercontent.com/worldline-go/guide/main/badge/custom/reference.svg)](https://pkg.go.dev/github.com/worldline-go/query)
+
+Convert http query to goqu's expressions.
 
 ```sh
 go get github.com/worldline-go/query
