@@ -4,53 +4,26 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-
-	"github.com/doug-martin/goqu/v9"
-	"github.com/doug-martin/goqu/v9/exp"
 )
 
 type Query struct {
+	Values map[string][]ExpressionCmp
+
 	Select []any
-	Where  []exp.Expression
-	Order  []exp.OrderedExpression
+	Where  []Expression
+	Order  []ExpressionOrder
 	Offset *uint64
 	Limit  *uint64
 }
 
-func (q *Query) GoquSelect(qq *goqu.SelectDataset) *goqu.SelectDataset {
-	if q == nil {
-		return qq
-	}
-
-	if len(q.Select) > 0 {
-		qq = qq.Select(q.Select...)
-	}
-
-	if len(q.Where) > 0 {
-		qq = qq.Where(q.Where...)
-	}
-
-	if len(q.Order) > 0 {
-		qq = qq.Order(q.Order...)
-	}
-
-	if q.Offset != nil {
-		qq = qq.Offset(uint(*q.Offset))
-	}
-
-	if q.Limit != nil {
-		qq = qq.Limit(uint(*q.Limit))
-	}
-
-	return qq
-}
-
 // Parse parses a query string into a Query struct.
 func Parse(query string) (*Query, error) {
-	result := &Query{}
+	result := &Query{
+		Values: make(map[string][]ExpressionCmp),
+	}
 
 	if query == "" {
-		return &Query{}, nil
+		return result, nil
 	}
 
 	// Split the query by & to get key-value pairs
@@ -112,6 +85,22 @@ func Parse(query string) (*Query, error) {
 			if err != nil {
 				return nil, err
 			}
+
+			if exprLogic, ok := expr.(ExpressionLogic); ok {
+				for _, e := range exprLogic.List {
+					if e == nil {
+						continue
+					}
+					if cmp, ok := e.(ExpressionCmp); ok {
+						result.Values[key] = append(result.Values[key], cmp)
+					}
+				}
+			} else {
+				if cmp, ok := expr.(ExpressionCmp); ok {
+					result.Values[key] = append(result.Values[key], cmp)
+				}
+			}
+
 			result.Where = append(result.Where, expr)
 		}
 	}
@@ -120,21 +109,29 @@ func Parse(query string) (*Query, error) {
 }
 
 // parseSort parses the sort parameter and returns the ordered expressions.
-func parseSort(value string) []exp.OrderedExpression {
+func parseSort(value string) []ExpressionOrder {
 	if value == "" {
 		return nil
 	}
 
 	fields := strings.Split(value, ",")
-	orderedExpressions := make([]exp.OrderedExpression, 0, len(fields))
+	orderedExpressions := make([]ExpressionOrder, 0, len(fields))
 
 	for _, field := range fields {
 		if strings.HasPrefix(field, "-") {
 			// Descending order
-			orderedExpressions = append(orderedExpressions, goqu.I(field[1:]).Desc())
+			orderedExpressions = append(orderedExpressions, ExpressionOrder{
+				Field: field[1:],
+				Desc:  true,
+			})
+			// orderedExpressions = append(orderedExpressions, goqu.I(field[1:]).Desc())
 		} else {
 			// Ascending order
-			orderedExpressions = append(orderedExpressions, goqu.I(field).Asc())
+			orderedExpressions = append(orderedExpressions, ExpressionOrder{
+				Field: field,
+				Desc:  false,
+			})
+			// orderedExpressions = append(orderedExpressions, goqu.I(field).Asc())
 		}
 	}
 
@@ -142,12 +139,12 @@ func parseSort(value string) []exp.OrderedExpression {
 }
 
 // parseFilter parses filter expressions from key-value pairs.
-func parseFilter(key, value string) (exp.Expression, error) {
+func parseFilter(key, value string) (Expression, error) {
 	switch {
 	case strings.Contains(value, "|"):
 		// Handle OR conditions with different fields
 		parts := strings.Split(value, "|")
-		exs := make([]exp.Expression, 0, len(parts))
+		exs := make([]Expression, 0, len(parts))
 
 		exp, err := parseExpression(key, parts[0])
 		if err != nil {
@@ -172,7 +169,10 @@ func parseFilter(key, value string) (exp.Expression, error) {
 			exs = append(exs, exp)
 		}
 
-		return goqu.Or(exs...), nil
+		return ExpressionLogic{
+			Operator: OperatorOr,
+			List:     exs,
+		}, nil
 	default:
 		return parseExpression(key, value)
 	}

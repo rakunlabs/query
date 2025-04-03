@@ -1,4 +1,4 @@
-package query_test
+package adaptergoqu_test
 
 import (
 	"fmt"
@@ -6,6 +6,7 @@ import (
 
 	"github.com/doug-martin/goqu/v9"
 	"github.com/worldline-go/query"
+	"github.com/worldline-go/query/adapter/adaptergoqu"
 )
 
 func ExampleParseQuery() {
@@ -20,7 +21,7 @@ func ExampleParseQuery() {
 		panic(err)
 	}
 
-	sql, params, err := query.GoquSelect(goqu.From("test")).ToSQL()
+	sql, params, err := adaptergoqu.Select(query, goqu.From("test")).ToSQL()
 	if err != nil {
 		panic(err)
 	}

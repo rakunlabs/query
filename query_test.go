@@ -2,11 +2,8 @@ package query
 
 import (
 	"net/url"
-	"slices"
+	"reflect"
 	"testing"
-
-	"github.com/doug-martin/goqu/v9"
-	"github.com/doug-martin/goqu/v9/exp"
 )
 
 func ptr(i uint64) *uint64 {
@@ -30,14 +27,15 @@ func TestParseQuery(t *testing.T) {
 			},
 			want: &Query{
 				Select: []any{"id", "name"},
-				Where: []exp.Expression{
-					goqu.C("name").In("foo", "bar"),
-					exp.Ex{
-						"age": "1",
-					},
+				Where: []Expression{
+					newExpressionCmp(OperatorIn, "name", []string{"foo", "bar"}),
+					newExpressionCmp(OperatorEq, "age", "1"),
 				},
-				Order: []exp.OrderedExpression{
-					goqu.I("age").Desc(),
+				Order: []ExpressionOrder{
+					{
+						Field: "age",
+						Desc:  true,
+					},
 				},
 				Offset: ptr(5),
 				Limit:  ptr(10),
@@ -50,21 +48,21 @@ func TestParseQuery(t *testing.T) {
 				query: "name=foo|nick=bar&age=1&sort=age&limit=10",
 			},
 			want: &Query{
-				Where: []exp.Expression{
-					goqu.Or(
-						exp.Ex{
-							"name": "foo",
+				Where: []Expression{
+					ExpressionLogic{
+						Operator: OperatorOr,
+						List: []Expression{
+							newExpressionCmp(OperatorEq, "name", "foo"),
+							newExpressionCmp(OperatorEq, "nick", "bar"),
 						},
-						exp.Ex{
-							"nick": "bar",
-						},
-					),
-					exp.Ex{
-						"age": "1",
 					},
+					newExpressionCmp(OperatorEq, "age", "1"),
 				},
-				Order: []exp.OrderedExpression{
-					goqu.I("age").Asc(),
+				Order: []ExpressionOrder{
+					{
+						Field: "age",
+						Desc:  false,
+					},
 				},
 				Limit: ptr(10),
 			},
@@ -78,21 +76,27 @@ func TestParseQuery(t *testing.T) {
 				t.Fatalf("ParseQuery() error = %s, wantErr %#v", err, tt.wantErr)
 			}
 
-			gotSQL, gotParams, err := got.GoquSelect(goqu.From("test")).ToSQL()
-			if err != nil {
-				t.Fatalf("ParseQuery() error = %s", err)
+			if got.Limit != nil && tt.want.Limit != nil {
+				if *got.Limit != *tt.want.Limit {
+					t.Fatalf("ParseQuery() Limit = %d, want %d", *got.Limit, *tt.want.Limit)
+				}
+			}
+			if got.Offset != nil && tt.want.Offset != nil {
+				if *got.Offset != *tt.want.Offset {
+					t.Fatalf("ParseQuery() Offset = %d, want %d", *got.Offset, *tt.want.Offset)
+				}
 			}
 
-			wantSQL, wantParams, err := tt.want.GoquSelect(goqu.From("test")).ToSQL()
-			if err != nil {
-				t.Fatalf("ParseQuery() error = %s", err)
+			if !reflect.DeepEqual(got.Where, tt.want.Where) {
+				t.Fatalf("ParseQuery() = \n%#v\n, want \n%#v\n", got.Where, tt.want.Where)
 			}
 
-			if gotSQL != wantSQL {
-				t.Errorf("ParseQuery() gotSQL = \n%v\n, want \n%v", gotSQL, wantSQL)
+			if !reflect.DeepEqual(got.Order, tt.want.Order) {
+				t.Fatalf("ParseQuery() = \n%#v\n, want \n%#v\n", got.Order, tt.want.Order)
 			}
-			if !slices.Equal(gotParams, wantParams) {
-				t.Errorf("ParseQuery() gotParams = \n%v\n, want \n%v", gotParams, wantParams)
+
+			if !reflect.DeepEqual(got.Select, tt.want.Select) {
+				t.Fatalf("ParseQuery() = \n%#v\n, want \n%#v\n", got.Select, tt.want.Select)
 			}
 		})
 	}

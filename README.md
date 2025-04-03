@@ -6,7 +6,7 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/worldline-go/query?style=flat-square)](https://goreportcard.com/report/github.com/worldline-go/query)
 [![Go PKG](https://raw.githubusercontent.com/worldline-go/guide/main/badge/custom/reference.svg)](https://pkg.go.dev/github.com/worldline-go/query)
 
-Convert http query to goqu's expressions.
+Query is an adaptor of http query to expressions. Check adapters to convert it to sql or other expressions.
 
 ```sh
 go get github.com/worldline-go/query
@@ -14,7 +14,8 @@ go get github.com/worldline-go/query
 
 ## Usage
 
-Parse url and extract query parameters with RAW, after that give to `query.Parse` for parsing goqu.
+Parse url and extract query parameters with RAW, after that give to `query.Parse` to convert it to expression.  
+After that use adapater to convert it to sql or other expressions.
 
 ```go
 urlStr := "http://example.com?name=foo,bar|nick=bar&age[lt]=1&sort=-age&limit=10&offset=5&fields=id,name"
@@ -22,7 +23,7 @@ parsedURL, err := url.Parse(urlStr)
 // ...
 query, err := query.Parse(parsedURL.RawQuery)
 // ...
-sql, params, err := query.GoquSelect(goqu.From("test")).ToSQL()
+sql, params, err := adaptergoqu.Select(query, goqu.From("test")).ToSQL()
 // ...
 
 // SQL: SELECT "id", "name" FROM "test" WHERE ((("name" IN ('foo', 'bar')) OR ("nick" = 'bar')) AND ("age" < '1')) ORDER BY "age" DESC LIMIT 10 OFFSET 5
@@ -32,3 +33,17 @@ sql, params, err := query.GoquSelect(goqu.From("test")).ToSQL()
 If some value separated by `,` it will be converted to `IN` operator.  
 There are a list of `[ ]` operators that can be used in the query string:  
 `eq, ne, gt, lt, gte, lte, like, ilike, nlike, nilike, in, nin, is, not`
+
+### Validation
+
+```go
+validator := query.NewValidator(
+    WithValue("member", WithRequired()),
+)
+
+// after that use it to validate
+err := validator.Validate(query)
+if err != nil {
+    // handle error
+}
+```
