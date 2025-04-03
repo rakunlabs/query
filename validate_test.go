@@ -90,6 +90,18 @@ func TestQuery_Validate(t *testing.T) {
 			},
 			wantErr: false,
 		},
+		{
+			name: "required",
+			fields: fields{
+				URL: "http://example.com?fields=name,age&sort=age,-name&offset=10&limit=20",
+			},
+			args: args{
+				opts: []OptionValidateSet{
+					WithField("fields", WithIn("X")),
+				},
+			},
+			wantErr: true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

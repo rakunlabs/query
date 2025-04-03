@@ -14,8 +14,8 @@ go get github.com/worldline-go/query
 
 ## Usage
 
-Parse url and extract query parameters with RAW, after that give to `query.Parse` to convert it to expression.  
-After that use adapater to convert it to sql or other expressions.
+Parse url and extract query parameters with RAW, give to `query.Parse` to convert it to expression.  
+Use an adapter to convert it to sql or other expressions.
 
 ```go
 urlStr := "http://example.com?name=foo,bar|nick=bar&age[lt]=1&sort=-age&limit=10&offset=5&fields=id,name"
