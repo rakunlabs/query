@@ -12,19 +12,19 @@ const (
 	valueType
 )
 
-type validator struct {
-	Values map[string][]func(q *Query) error
+type Validator struct {
+	values map[string][]func(q *Query) error
 }
 
 type (
-	optionValidateFunc func(string, *validator, funcType) error
+	optionValidateFunc func(string, *Validator, funcType) error
 	OptionValidate     func(string, ...optionValidateFunc)
-	OptionValidateSet  func(v *validator) error
+	OptionValidateSet  func(v *Validator) error
 )
 
-func NewValidator(opts ...OptionValidateSet) (*validator, error) {
-	v := &validator{
-		Values: make(map[string][]func(q *Query) error),
+func NewValidator(opts ...OptionValidateSet) (*Validator, error) {
+	v := &Validator{
+		values: make(map[string][]func(q *Query) error),
 	}
 
 	for _, opt := range opts {
@@ -37,7 +37,7 @@ func NewValidator(opts ...OptionValidateSet) (*validator, error) {
 }
 
 func WithField(key string, opts ...optionValidateFunc) OptionValidateSet {
-	return func(v *validator) error {
+	return func(v *Validator) error {
 		for _, opt := range opts {
 			if err := opt(key, v, fieldType); err != nil {
 				return err
@@ -49,7 +49,7 @@ func WithField(key string, opts ...optionValidateFunc) OptionValidateSet {
 }
 
 func WithValue(key string, opts ...optionValidateFunc) OptionValidateSet {
-	return func(v *validator) error {
+	return func(v *Validator) error {
 		for _, opt := range opts {
 			if err := opt(key, v, valueType); err != nil {
 				return err
@@ -61,7 +61,7 @@ func WithValue(key string, opts ...optionValidateFunc) OptionValidateSet {
 }
 
 func WithMin(min json.Number) optionValidateFunc {
-	return func(key string, v *validator, t funcType) error {
+	return func(key string, v *Validator, t funcType) error {
 		vMinFloat, err := json.Number(min).Float64()
 		if err != nil {
 			return fmt.Errorf("min value %s is not a number", min)
@@ -69,7 +69,7 @@ func WithMin(min json.Number) optionValidateFunc {
 
 		switch t {
 		case valueType:
-			v.Values[key] = append(v.Values[key], func(q *Query) error {
+			v.values[key] = append(v.values[key], func(q *Query) error {
 				for _, cmp := range q.Values[key] {
 					if cmp.Operator == OperatorEq && cmp.Value != nil {
 						cmpStr, ok := cmp.Value.(string)
@@ -115,7 +115,7 @@ func WithMin(min json.Number) optionValidateFunc {
 }
 
 func WithMax(max json.Number) optionValidateFunc {
-	return func(key string, v *validator, t funcType) error {
+	return func(key string, v *Validator, t funcType) error {
 		vMaxFloat, err := json.Number(max).Float64()
 		if err != nil {
 			return fmt.Errorf("max value %s is not a number", max)
@@ -123,7 +123,7 @@ func WithMax(max json.Number) optionValidateFunc {
 
 		switch t {
 		case valueType:
-			v.Values[key] = append(v.Values[key], func(q *Query) error {
+			v.values[key] = append(v.values[key], func(q *Query) error {
 				for _, cmp := range q.Values[key] {
 					if cmp.Operator == OperatorEq && cmp.Value != nil {
 						cmpStr, ok := cmp.Value.(string)
@@ -174,10 +174,10 @@ func WithIn(values ...string) optionValidateFunc {
 		valuesMap[val] = struct{}{}
 	}
 
-	return func(key string, v *validator, t funcType) error {
+	return func(key string, v *Validator, t funcType) error {
 		switch t {
 		case fieldType:
-			v.Values[key] = append(v.Values[key], func(q *Query) error {
+			v.values[key] = append(v.values[key], func(q *Query) error {
 				for _, cmp := range q.Select {
 					cmpStr, ok := cmp.(string)
 					if !ok {
@@ -192,7 +192,7 @@ func WithIn(values ...string) optionValidateFunc {
 				return nil
 			})
 		case valueType:
-			v.Values[key] = append(v.Values[key], func(q *Query) error {
+			v.values[key] = append(v.values[key], func(q *Query) error {
 				for _, cmp := range q.Values[key] {
 					if cmp.Operator == OperatorEq && cmp.Value != nil {
 						cmpStr, ok := cmp.Value.(string)
@@ -237,10 +237,10 @@ func WithNotIn(values ...string) optionValidateFunc {
 		valuesMap[val] = struct{}{}
 	}
 
-	return func(key string, v *validator, t funcType) error {
+	return func(key string, v *Validator, t funcType) error {
 		switch t {
 		case fieldType:
-			v.Values[key] = append(v.Values[key], func(q *Query) error {
+			v.values[key] = append(v.values[key], func(q *Query) error {
 				for _, cmp := range q.Select {
 					cmpStr, ok := cmp.(string)
 					if !ok {
@@ -256,7 +256,7 @@ func WithNotIn(values ...string) optionValidateFunc {
 				return nil
 			})
 		case valueType:
-			v.Values[key] = append(v.Values[key], func(q *Query) error {
+			v.values[key] = append(v.values[key], func(q *Query) error {
 				for _, cmp := range q.Values[key] {
 					if cmp.Operator == OperatorEq && cmp.Value != nil {
 						cmpStr, ok := cmp.Value.(string)
@@ -296,10 +296,10 @@ func WithNotIn(values ...string) optionValidateFunc {
 }
 
 func WithNotEmpty() optionValidateFunc {
-	return func(key string, v *validator, t funcType) error {
+	return func(key string, v *Validator, t funcType) error {
 		switch t {
 		case valueType:
-			v.Values[key] = append(v.Values[key], func(q *Query) error {
+			v.values[key] = append(v.values[key], func(q *Query) error {
 				for _, cmp := range q.Values[key] {
 					if cmp.Operator == OperatorEq && cmp.Value != nil {
 						cmpStr, ok := cmp.Value.(string)
@@ -324,10 +324,10 @@ func WithNotEmpty() optionValidateFunc {
 }
 
 func WithRequired() optionValidateFunc {
-	return func(key string, v *validator, t funcType) error {
+	return func(key string, v *Validator, t funcType) error {
 		switch t {
 		case valueType:
-			v.Values[key] = append(v.Values[key], func(q *Query) error {
+			v.values[key] = append(v.values[key], func(q *Query) error {
 				for _, cmp := range q.Values[key] {
 					if cmp.Operator == OperatorEq && cmp.Value != nil {
 						return nil
@@ -342,12 +342,12 @@ func WithRequired() optionValidateFunc {
 	}
 }
 
-func (q *Query) Validate(v *validator) error {
+func (q *Query) Validate(v *Validator) error {
 	if v == nil {
 		return fmt.Errorf("validate is nil")
 	}
 
-	for key, f := range v.Values {
+	for key, f := range v.values {
 		for _, fn := range f {
 			if err := fn(q); err != nil {
 				return fmt.Errorf("validate %s: %w", key, err)
