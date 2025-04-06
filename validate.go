@@ -8,12 +8,15 @@ import (
 type funcType int
 
 const (
-	fieldType funcType = iota
+	fieldsType funcType = iota
+	valuesType
 	valueType
 )
 
 type Validator struct {
-	values map[string][]func(q *Query) error
+	fields []func(q *Query) error
+	values []func(q *Query) error
+	value  map[string][]func(q *Query) error
 }
 
 type (
@@ -24,7 +27,7 @@ type (
 
 func NewValidator(opts ...OptionValidateSet) (*Validator, error) {
 	v := &Validator{
-		values: make(map[string][]func(q *Query) error),
+		value: make(map[string][]func(q *Query) error),
 	}
 
 	for _, opt := range opts {
@@ -36,10 +39,10 @@ func NewValidator(opts ...OptionValidateSet) (*Validator, error) {
 	return v, nil
 }
 
-func WithField(key string, opts ...optionValidateFunc) OptionValidateSet {
+func WithField(opts ...optionValidateFunc) OptionValidateSet {
 	return func(v *Validator) error {
 		for _, opt := range opts {
-			if err := opt(key, v, fieldType); err != nil {
+			if err := opt("", v, fieldsType); err != nil {
 				return err
 			}
 		}
@@ -60,16 +63,30 @@ func WithValue(key string, opts ...optionValidateFunc) OptionValidateSet {
 	}
 }
 
+func WithValues(opts ...optionValidateFunc) OptionValidateSet {
+	return func(v *Validator) error {
+		for _, opt := range opts {
+			if err := opt("", v, valuesType); err != nil {
+				return err
+			}
+		}
+
+		return nil
+	}
+}
+
+// WithMin to validate the minimum of a value.
+//   - only usable for 'WithValue'
 func WithMin(min json.Number) optionValidateFunc {
 	return func(key string, v *Validator, t funcType) error {
 		vMinFloat, err := json.Number(min).Float64()
 		if err != nil {
-			return fmt.Errorf("min value %s is not a number", min)
+			return fmt.Errorf("min value [%s] is not a number", min)
 		}
 
 		switch t {
 		case valueType:
-			v.values[key] = append(v.values[key], func(q *Query) error {
+			v.value[key] = append(v.value[key], func(q *Query) error {
 				for _, cmp := range q.Values[key] {
 					if cmp.Operator == OperatorEq && cmp.Value != nil {
 						cmpStr, ok := cmp.Value.(string)
@@ -114,16 +131,18 @@ func WithMin(min json.Number) optionValidateFunc {
 	}
 }
 
+// WithMax to validate the maximum of a value.
+//   - only usable for 'WithValue'
 func WithMax(max json.Number) optionValidateFunc {
 	return func(key string, v *Validator, t funcType) error {
 		vMaxFloat, err := json.Number(max).Float64()
 		if err != nil {
-			return fmt.Errorf("max value %s is not a number", max)
+			return fmt.Errorf("max value [%s] is not a number", max)
 		}
 
 		switch t {
 		case valueType:
-			v.values[key] = append(v.values[key], func(q *Query) error {
+			v.value[key] = append(v.value[key], func(q *Query) error {
 				for _, cmp := range q.Values[key] {
 					if cmp.Operator == OperatorEq && cmp.Value != nil {
 						cmpStr, ok := cmp.Value.(string)
@@ -176,23 +195,28 @@ func WithIn(values ...string) optionValidateFunc {
 
 	return func(key string, v *Validator, t funcType) error {
 		switch t {
-		case fieldType:
-			v.values[key] = append(v.values[key], func(q *Query) error {
-				for _, cmp := range q.Select {
-					cmpStr, ok := cmp.(string)
-					if !ok {
-						return fmt.Errorf("value [%v] is not a string for in", cmp)
+		case valuesType:
+			v.values = append(v.values, func(q *Query) error {
+				for vKey := range q.Values {
+					if _, ok := valuesMap[vKey]; !ok {
+						return fmt.Errorf("value [%s] is not in %v", vKey, values)
 					}
+				}
 
-					if _, ok := valuesMap[cmpStr]; !ok {
-						return fmt.Errorf("value %s is not in %v", cmpStr, values)
+				return nil
+			})
+		case fieldsType:
+			v.fields = append(v.fields, func(q *Query) error {
+				for _, cmp := range q.Select {
+					if _, ok := valuesMap[cmp]; !ok {
+						return fmt.Errorf("value [%s] is not in %v", cmp, values)
 					}
 				}
 
 				return nil
 			})
 		case valueType:
-			v.values[key] = append(v.values[key], func(q *Query) error {
+			v.value[key] = append(v.value[key], func(q *Query) error {
 				for _, cmp := range q.Values[key] {
 					if cmp.Operator == OperatorEq && cmp.Value != nil {
 						cmpStr, ok := cmp.Value.(string)
@@ -201,7 +225,7 @@ func WithIn(values ...string) optionValidateFunc {
 						}
 
 						if _, ok := valuesMap[cmpStr]; !ok {
-							return fmt.Errorf("value %s is not in %v", cmpStr, values)
+							return fmt.Errorf("value [%s] is not in %v", cmpStr, values)
 						}
 
 						return nil
@@ -215,7 +239,7 @@ func WithIn(values ...string) optionValidateFunc {
 
 						for _, val := range cmpIn {
 							if _, ok := valuesMap[val]; !ok {
-								return fmt.Errorf("value %s is not in %v", val, values)
+								return fmt.Errorf("value [%s] is not in %v", val, values)
 							}
 						}
 
@@ -239,15 +263,21 @@ func WithNotIn(values ...string) optionValidateFunc {
 
 	return func(key string, v *Validator, t funcType) error {
 		switch t {
-		case fieldType:
-			v.values[key] = append(v.values[key], func(q *Query) error {
-				for _, cmp := range q.Select {
-					cmpStr, ok := cmp.(string)
-					if !ok {
-						return fmt.Errorf("value [%v] is not a string for in", cmp)
+		case valuesType:
+			v.values = append(v.values, func(q *Query) error {
+				for vKey := range q.Values {
+					if _, ok := valuesMap[vKey]; ok {
+						return fmt.Errorf("value [%s] is in %v", vKey, values)
 					}
-					if _, ok := valuesMap[cmpStr]; ok {
-						return fmt.Errorf("value %s is in %v", cmpStr, values)
+				}
+
+				return nil
+			})
+		case fieldsType:
+			v.fields = append(v.fields, func(q *Query) error {
+				for _, cmp := range q.Select {
+					if _, ok := valuesMap[cmp]; ok {
+						return fmt.Errorf("value [%s] is in %v", cmp, values)
 					}
 
 					return nil
@@ -256,7 +286,7 @@ func WithNotIn(values ...string) optionValidateFunc {
 				return nil
 			})
 		case valueType:
-			v.values[key] = append(v.values[key], func(q *Query) error {
+			v.value[key] = append(v.value[key], func(q *Query) error {
 				for _, cmp := range q.Values[key] {
 					if cmp.Operator == OperatorEq && cmp.Value != nil {
 						cmpStr, ok := cmp.Value.(string)
@@ -265,7 +295,7 @@ func WithNotIn(values ...string) optionValidateFunc {
 						}
 
 						if _, ok := valuesMap[cmpStr]; ok {
-							return fmt.Errorf("value %s is in %v", cmpStr, values)
+							return fmt.Errorf("value [%s] is in %v", cmpStr, values)
 						}
 
 						return nil
@@ -279,7 +309,7 @@ func WithNotIn(values ...string) optionValidateFunc {
 
 						for _, val := range cmpIn {
 							if _, ok := valuesMap[val]; ok {
-								return fmt.Errorf("value %s is in %v", val, values)
+								return fmt.Errorf("value [%s] is in %v", val, values)
 							}
 						}
 
@@ -295,11 +325,13 @@ func WithNotIn(values ...string) optionValidateFunc {
 	}
 }
 
+// WithNotEmpty to validate the value is not empty.
+//   - only usable for 'WithValue'
 func WithNotEmpty() optionValidateFunc {
 	return func(key string, v *Validator, t funcType) error {
 		switch t {
 		case valueType:
-			v.values[key] = append(v.values[key], func(q *Query) error {
+			v.value[key] = append(v.value[key], func(q *Query) error {
 				for _, cmp := range q.Values[key] {
 					if cmp.Operator == OperatorEq && cmp.Value != nil {
 						cmpStr, ok := cmp.Value.(string)
@@ -308,7 +340,7 @@ func WithNotEmpty() optionValidateFunc {
 						}
 
 						if cmpStr == "" {
-							return fmt.Errorf("value %s is empty", cmp)
+							return fmt.Errorf("value [%s] is empty", cmp)
 						}
 
 						return nil
@@ -323,18 +355,55 @@ func WithNotEmpty() optionValidateFunc {
 	}
 }
 
+// WithRequired to validate the value is required.
+//   - only usable for 'WithValue'
 func WithRequired() optionValidateFunc {
 	return func(key string, v *Validator, t funcType) error {
 		switch t {
 		case valueType:
-			v.values[key] = append(v.values[key], func(q *Query) error {
+			v.value[key] = append(v.value[key], func(q *Query) error {
 				for _, cmp := range q.Values[key] {
 					if cmp.Operator == OperatorEq && cmp.Value != nil {
 						return nil
 					}
 				}
 
-				return fmt.Errorf("value %s is required", key)
+				return fmt.Errorf("value [%s] is required", key)
+			})
+		}
+
+		return nil
+	}
+}
+
+func WithNotAllowed() optionValidateFunc {
+	return func(key string, v *Validator, t funcType) error {
+		switch t {
+		case valuesType:
+			v.values = append(v.values, func(q *Query) error {
+				if len(q.Values) > 0 {
+					return fmt.Errorf("values is not allowed")
+				}
+
+				return nil
+			})
+		case fieldsType:
+			v.fields = append(v.fields, func(q *Query) error {
+				if len(q.Select) > 0 {
+					return fmt.Errorf("fields is not allowed")
+				}
+
+				return nil
+			})
+		case valueType:
+			v.value[key] = append(v.value[key], func(q *Query) error {
+				for _, cmp := range q.Values[key] {
+					if cmp.Field != "" {
+						return fmt.Errorf("value [%s] is not allowed", cmp)
+					}
+				}
+
+				return nil
 			})
 		}
 
@@ -344,14 +413,26 @@ func WithRequired() optionValidateFunc {
 
 func (q *Query) Validate(v *Validator) error {
 	if v == nil {
-		return fmt.Errorf("validate is nil")
+		return nil
 	}
 
-	for key, f := range v.values {
+	for key, f := range v.value {
 		for _, fn := range f {
 			if err := fn(q); err != nil {
-				return fmt.Errorf("validate %s: %w", key, err)
+				return fmt.Errorf("validate [%s]: %w", key, err)
 			}
+		}
+	}
+
+	for _, fn := range v.fields {
+		if err := fn(q); err != nil {
+			return fmt.Errorf("validate fields: %w", err)
+		}
+	}
+
+	for _, fn := range v.values {
+		if err := fn(q); err != nil {
+			return fmt.Errorf("validate values: %w", err)
 		}
 	}
 

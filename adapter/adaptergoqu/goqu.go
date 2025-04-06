@@ -8,13 +8,38 @@ import (
 	"github.com/worldline-go/query"
 )
 
-func Select(q *query.Query, qq *goqu.SelectDataset) *goqu.SelectDataset {
+func Select(q *query.Query, qq *goqu.SelectDataset, opts ...Option) *goqu.SelectDataset {
+	opt := &option{}
+	for _, o := range opts {
+		o(opt)
+	}
+
+	if opt.Edit != nil {
+		q = opt.Edit(q)
+	}
+
 	if q == nil {
 		return qq
 	}
 
+	var selects []string
 	if len(q.Select) > 0 {
-		qq = qq.Select(q.Select...)
+		selects = q.Select
+	} else if len(opt.DefaultSelect) > 0 {
+		selects = opt.DefaultSelect
+	}
+
+	if len(selects) > 0 {
+		selectsAny := make([]any, 0, len(selects))
+		for _, s := range selects {
+			if rename, ok := opt.Rename[s]; ok {
+				s = rename
+			}
+
+			selectsAny = append(selectsAny, goqu.I(s))
+		}
+
+		qq = qq.Select(selectsAny...)
 	}
 
 	if len(q.Where) > 0 {
@@ -25,7 +50,7 @@ func Select(q *query.Query, qq *goqu.SelectDataset) *goqu.SelectDataset {
 			switch t.Type {
 			case query.WalkCurrent:
 				if exprCmp, ok := t.Expression.(query.ExpressionCmp); ok {
-					e, err := exprCmpToGoqu(exprCmp)
+					e, err := exprCmpToGoqu(exprCmp, opt.Rename)
 					if err != nil {
 						return err
 					}
@@ -67,10 +92,15 @@ func Select(q *query.Query, qq *goqu.SelectDataset) *goqu.SelectDataset {
 	if len(q.Order) > 0 {
 		order := make([]exp.OrderedExpression, 0, len(q.Order))
 		for _, o := range q.Order {
+			field := o.Field
+			if rename, ok := opt.Rename[field]; ok {
+				field = rename
+			}
+
 			if o.Desc {
-				order = append(order, goqu.I(o.Field).Desc())
+				order = append(order, goqu.I(field).Desc())
 			} else {
-				order = append(order, goqu.I(o.Field).Asc())
+				order = append(order, goqu.I(field).Asc())
 			}
 		}
 
@@ -99,36 +129,43 @@ func exprLogicToGoqu(e query.ExpressionLogic, stack []goqu.Expression) (goqu.Exp
 	return nil, fmt.Errorf("unsupported operator: [%s]", e.Operator)
 }
 
-func exprCmpToGoqu(e query.ExpressionCmp) (goqu.Expression, error) {
+func exprCmpToGoqu(e query.ExpressionCmp, rename map[string]string) (goqu.Expression, error) {
+	field := e.Field
+	if rename, ok := rename[field]; ok {
+		field = rename
+	}
+
+	fieldI := goqu.I(field)
+
 	switch e.Operator {
 	case query.OperatorEq:
-		return goqu.C(e.Field).Eq(e.Value), nil
+		return fieldI.Eq(e.Value), nil
 	case query.OperatorNe:
-		return goqu.C(e.Field).Neq(e.Value), nil
+		return fieldI.Neq(e.Value), nil
 	case query.OperatorGt:
-		return goqu.C(e.Field).Gt(e.Value), nil
+		return fieldI.Gt(e.Value), nil
 	case query.OperatorLt:
-		return goqu.C(e.Field).Lt(e.Value), nil
+		return fieldI.Lt(e.Value), nil
 	case query.OperatorGte:
-		return goqu.C(e.Field).Gte(e.Value), nil
+		return fieldI.Gte(e.Value), nil
 	case query.OperatorLte:
-		return goqu.C(e.Field).Lte(e.Value), nil
+		return fieldI.Lte(e.Value), nil
 	case query.OperatorLike:
-		return goqu.C(e.Field).Like(e.Value), nil
+		return fieldI.Like(e.Value), nil
 	case query.OperatorILike:
-		return goqu.C(e.Field).ILike(e.Value), nil
+		return fieldI.ILike(e.Value), nil
 	case query.OperatorNLike:
-		return goqu.C(e.Field).NotLike(e.Value), nil
+		return fieldI.NotLike(e.Value), nil
 	case query.OperatorNILike:
-		return goqu.C(e.Field).NotILike(e.Value), nil
+		return fieldI.NotILike(e.Value), nil
 	case query.OperatorIn:
-		return goqu.C(e.Field).In(e.Value), nil
+		return fieldI.In(e.Value), nil
 	case query.OperatorNIn:
-		return goqu.C(e.Field).NotIn(e.Value), nil
+		return fieldI.NotIn(e.Value), nil
 	case query.OperatorIs:
-		return goqu.C(e.Field).IsNull(), nil
+		return fieldI.IsNull(), nil
 	case query.OperatorIsNot:
-		return goqu.C(e.Field).IsNotNull(), nil
+		return fieldI.IsNotNull(), nil
 	}
 
 	return nil, fmt.Errorf("unsupported operator: [%s]", e.Operator)

@@ -26,7 +26,7 @@ func TestParseQuery(t *testing.T) {
 				query: "name=foo,bar&age=1&sort=-age&limit=10&offset=5&fields=id,name",
 			},
 			want: &Query{
-				Select: []any{"id", "name"},
+				Select: []string{"id", "name"},
 				Where: []Expression{
 					newExpressionCmp(OperatorIn, "name", []string{"foo", "bar"}),
 					newExpressionCmp(OperatorEq, "age", "1"),

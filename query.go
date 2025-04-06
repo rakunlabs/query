@@ -9,21 +9,73 @@ import (
 type Query struct {
 	Values map[string][]ExpressionCmp
 
-	Select []any
+	Select []string
 	Where  []Expression
 	Order  []ExpressionOrder
 	Offset *uint64
 	Limit  *uint64
 }
 
-// Parse parses a query string into a Query struct.
-func Parse(query string) (*Query, error) {
-	result := &Query{
-		Values: make(map[string][]ExpressionCmp),
+func (q *Query) Has(v string) bool {
+	if _, ok := q.Values[v]; ok {
+		return true
 	}
 
-	if query == "" {
-		return result, nil
+	return false
+}
+
+func (q *Query) HasAny(vList ...string) bool {
+	for _, v := range vList {
+		if _, ok := q.Values[v]; ok {
+			return true
+		}
+	}
+
+	return false
+}
+
+func (q *Query) GetOffset() uint64 {
+	if q.Offset != nil {
+		return *q.Offset
+	}
+
+	return 0
+}
+
+func (q *Query) GetLimit() uint64 {
+	if q.Limit != nil {
+		return *q.Limit
+	}
+
+	return 0
+}
+
+func ParseWithValidator(query string, validator *Validator, opts ...OptionQuery) (*Query, error) {
+	q, err := Parse(query, opts...)
+	if err != nil {
+		return nil, err
+	}
+
+	if validator == nil {
+		return q, nil
+	}
+
+	if err := q.Validate(validator); err != nil {
+		return nil, err
+	}
+
+	return q, nil
+}
+
+// Parse parses a query string into a Query struct.
+func Parse(query string, opts ...OptionQuery) (*Query, error) {
+	o := &optionQuery{}
+	for _, opt := range opts {
+		opt(o)
+	}
+
+	result := &Query{
+		Values: make(map[string][]ExpressionCmp),
 	}
 
 	// Split the query by & to get key-value pairs
@@ -105,6 +157,18 @@ func Parse(query string) (*Query, error) {
 		}
 	}
 
+	if result.Offset == nil && o.DefaultOffset != nil {
+		result.Offset = o.DefaultOffset
+	}
+	if result.Limit == nil && o.DefaultLimit != nil {
+		result.Limit = o.DefaultLimit
+	}
+
+	for key, value := range o.Value {
+		result.Values[key] = append(result.Values[key], value)
+		result.Where = append(result.Where, value)
+	}
+
 	return result, nil
 }
 
@@ -118,20 +182,39 @@ func parseSort(value string) []ExpressionOrder {
 	orderedExpressions := make([]ExpressionOrder, 0, len(fields))
 
 	for _, field := range fields {
-		if strings.HasPrefix(field, "-") {
+		switch {
+		case field == "":
+			// Skip empty fields
+		case strings.HasPrefix(field, "+"):
+			// Ascending order
+			orderedExpressions = append(orderedExpressions, ExpressionOrder{
+				Field: field[1:],
+				Desc:  false,
+			})
+		case strings.HasPrefix(field, "-"):
 			// Descending order
 			orderedExpressions = append(orderedExpressions, ExpressionOrder{
 				Field: field[1:],
 				Desc:  true,
 			})
-			// orderedExpressions = append(orderedExpressions, goqu.I(field[1:]).Desc())
-		} else {
+		case strings.HasSuffix(field, ":asc"):
+			// Ascending order
+			orderedExpressions = append(orderedExpressions, ExpressionOrder{
+				Field: field[:len(field)-4],
+				Desc:  false,
+			})
+		case strings.HasSuffix(field, ":desc"):
+			// Descending order
+			orderedExpressions = append(orderedExpressions, ExpressionOrder{
+				Field: field[:len(field)-5],
+				Desc:  true,
+			})
+		default:
 			// Ascending order
 			orderedExpressions = append(orderedExpressions, ExpressionOrder{
 				Field: field,
 				Desc:  false,
 			})
-			// orderedExpressions = append(orderedExpressions, goqu.I(field).Asc())
 		}
 	}
 

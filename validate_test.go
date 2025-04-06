@@ -97,10 +97,35 @@ func TestQuery_Validate(t *testing.T) {
 			},
 			args: args{
 				opts: []OptionValidateSet{
-					WithField("fields", WithIn("X")),
+					WithField(WithIn("X")),
 				},
 			},
 			wantErr: true,
+		},
+		{
+			name: "not allowed",
+			fields: fields{
+				URL: "http://example.com?age=5&fields=name,age&sort=age,-name&offset=10&limit=20",
+			},
+			args: args{
+				opts: []OptionValidateSet{
+					WithField(WithNotAllowed()),
+					WithValues(WithNotAllowed()),
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "values in",
+			fields: fields{
+				URL: "http://example.com?age=5",
+			},
+			args: args{
+				opts: []OptionValidateSet{
+					WithValues(WithIn("age", "test")),
+				},
+			},
+			wantErr: false,
 		},
 	}
 	for _, tt := range tests {
