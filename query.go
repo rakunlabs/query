@@ -50,6 +50,26 @@ func (q *Query) GetLimit() uint64 {
 	return 0
 }
 
+func (q *Query) CloneLimit() *uint64 {
+	if q.Limit != nil {
+		v := *q.Limit
+
+		return &v
+	}
+
+	return nil
+}
+
+func (q *Query) CloneOffset() *uint64 {
+	if q.Offset != nil {
+		v := *q.Offset
+
+		return &v
+	}
+
+	return nil
+}
+
 func ParseWithValidator(query string, validator *Validator, opts ...OptionQuery) (*Query, error) {
 	q, err := Parse(query, opts...)
 	if err != nil {
@@ -139,21 +159,36 @@ func Parse(query string, opts ...OptionQuery) (*Query, error) {
 			}
 
 			if exprLogic, ok := expr.(ExpressionLogic); ok {
+				newExprLogic := exprLogic
+				newExprLogic.List = make([]Expression, 0, len(exprLogic.List))
+
 				for _, e := range exprLogic.List {
 					if e == nil {
 						continue
 					}
 					if cmp, ok := e.(ExpressionCmp); ok {
-						result.Values[key] = append(result.Values[key], cmp)
+						result.Values[cmp.Field] = append(result.Values[cmp.Field], cmp)
+
+						if _, ok := o.Skip[cmp.Field]; ok {
+							continue
+						}
+
+						newExprLogic.List = append(newExprLogic.List, cmp)
 					}
 				}
+
+				result.Where = append(result.Where, newExprLogic)
 			} else {
 				if cmp, ok := expr.(ExpressionCmp); ok {
-					result.Values[key] = append(result.Values[key], cmp)
-				}
-			}
+					result.Values[cmp.Field] = append(result.Values[cmp.Field], cmp)
 
-			result.Where = append(result.Where, expr)
+					if _, ok := o.Skip[cmp.Field]; ok {
+						continue
+					}
+				}
+
+				result.Where = append(result.Where, expr)
+			}
 		}
 	}
 

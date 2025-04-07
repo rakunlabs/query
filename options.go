@@ -5,6 +5,7 @@ type optionQuery struct {
 	DefaultLimit  *uint64
 
 	Value map[string]ExpressionCmp
+	Skip  map[string]struct{}
 }
 
 type OptionQuery func(*optionQuery)
@@ -23,6 +24,7 @@ func WithDefaultLimit(limit uint64) OptionQuery {
 	}
 }
 
+// WithExpressionCmp sets the expression comparison for a given key.
 func WithExpressionCmp(key string, value ExpressionCmp) OptionQuery {
 	return func(o *optionQuery) {
 		if o.Value == nil {
@@ -30,5 +32,18 @@ func WithExpressionCmp(key string, value ExpressionCmp) OptionQuery {
 		}
 
 		o.Value[key] = value
+	}
+}
+
+// WithSkipExpressionCmp sets the keys to be skipped in the query.
+func WithSkipExpressionCmp(key ...string) OptionQuery {
+	return func(o *optionQuery) {
+		if o.Skip == nil {
+			o.Skip = make(map[string]struct{})
+		}
+
+		for _, k := range key {
+			o.Skip[k] = struct{}{}
+		}
 	}
 }
