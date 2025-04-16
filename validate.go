@@ -187,6 +187,7 @@ func WithMax(max json.Number) optionValidateFunc {
 	}
 }
 
+// WithIn checks if the value is in the list of values.
 func WithIn(values ...string) optionValidateFunc {
 	valuesMap := make(map[string]struct{}, len(values))
 	for _, val := range values {
@@ -400,6 +401,58 @@ func WithNotAllowed() optionValidateFunc {
 				for _, cmp := range q.Values[key] {
 					if cmp.Field != "" {
 						return fmt.Errorf("value [%s] is not allowed", cmp)
+					}
+				}
+
+				return nil
+			})
+		}
+
+		return nil
+	}
+}
+
+// WithOperator to validate the operator is allowed.
+//   - only usable for 'WithValue'
+func WithOperator(operators ...OperatorCmpType) optionValidateFunc {
+	operatorsMap := make(map[OperatorCmpType]struct{}, len(operators))
+	for _, op := range operators {
+		operatorsMap[op] = struct{}{}
+	}
+
+	return func(key string, v *Validator, t funcType) error {
+		switch t {
+		case valueType:
+			v.value[key] = append(v.value[key], func(q *Query) error {
+				for _, cmp := range q.Values[key] {
+					if _, ok := operatorsMap[cmp.Operator]; !ok {
+						return fmt.Errorf("operator [%s] is not allowed", cmp.Operator)
+					}
+				}
+
+				return nil
+			})
+		}
+
+		return nil
+	}
+}
+
+// WithNotOperator to validate the operator is not allowed.
+//   - only usable for 'WithValue'
+func WithNotOperator(operators ...OperatorCmpType) optionValidateFunc {
+	operatorsMap := make(map[OperatorCmpType]struct{}, len(operators))
+	for _, op := range operators {
+		operatorsMap[op] = struct{}{}
+	}
+
+	return func(key string, v *Validator, t funcType) error {
+		switch t {
+		case valueType:
+			v.value[key] = append(v.value[key], func(q *Query) error {
+				for _, cmp := range q.Values[key] {
+					if _, ok := operatorsMap[cmp.Operator]; ok {
+						return fmt.Errorf("operator [%s] is not allowed", cmp.Operator)
 					}
 				}
 

@@ -38,7 +38,10 @@ There are a list of `[ ]` operators that can be used in the query string:
 
 ```go
 validator := query.NewValidator(
-    WithValue("member", WithRequired()),
+    WithValue("member", WithRequired(), WithNotIn("O", "P", "S")),
+    WithValues(WithIn("age", "test", "member")),
+    WithValue("age", WithOperator(OperatorEq), WithNotOperator(OperatorIn)),
+    WithField(WithNotAllowed()),
 )
 
 // after that use it to validate
