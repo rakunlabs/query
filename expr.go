@@ -2,6 +2,7 @@ package query
 
 import (
 	"fmt"
+	"net/url"
 	"strings"
 )
 
@@ -103,72 +104,59 @@ func parseFieldWithOperator(input string) (field string, op string, hasOp bool) 
 // parseExpression parses a single expression from key-value pairs.
 //   - key -> key[eq]
 //   - eq, ne, gt, lt, gte, lte, like, ilike, nlike, nilike, in, nin, is, not
-func parseExpression(key, value string) (ExpressionCmp, error) {
+func parseExpression(key, valueRaw string) (ExpressionCmp, error) {
+	value, err := url.QueryUnescape(valueRaw)
+	if err != nil {
+		return ExpressionCmp{}, err
+	}
+
 	field, operator, hasOperator := parseFieldWithOperator(key)
 
 	if !hasOperator {
 		if strings.Contains(value, ",") {
 			return newExpressionCmp(OperatorIn, field, strings.Split(value, ",")), nil
-			// return goqu.C(field).In(strings.Split(value, ",")), nil
 		}
 
 		return newExpressionCmp(OperatorEq, field, value), nil
-		// return exp.Ex{field: value}, nil
 	}
 
 	switch OperatorCmpType(operator) {
 	case OperatorEq:
 		return newExpressionCmp(OperatorEq, field, value), nil
-		// return goqu.C(field).Eq(value), nil
 	case OperatorNe:
 		return newExpressionCmp(OperatorNe, field, value), nil
-		// return goqu.C(field).Neq(value), nil
 	case OperatorGt:
 		return newExpressionCmp(OperatorGt, field, value), nil
-		// return goqu.C(field).Gt(value), nil
 	case OperatorLt:
 		return newExpressionCmp(OperatorLt, field, value), nil
-		// return goqu.C(field).Lt(value), nil
 	case OperatorGte:
 		return newExpressionCmp(OperatorGte, field, value), nil
-		// return goqu.C(field).Gte(value), nil
 	case OperatorLte:
 		return newExpressionCmp(OperatorLte, field, value), nil
-		// return goqu.C(field).Lte(value), nil
 	case OperatorLike:
 		return newExpressionCmp(OperatorLike, field, value), nil
-		// return goqu.C(field).Like(value), nil
 	case OperatorILike:
 		return newExpressionCmp(OperatorILike, field, value), nil
-		// return goqu.C(field).ILike(value), nil
 	case OperatorNLike:
 		return newExpressionCmp(OperatorNLike, field, value), nil
-		// return goqu.C(field).NotLike(value), nil
 	case OperatorNILike:
 		return newExpressionCmp(OperatorNILike, field, value), nil
-		// return goqu.C(field).NotILike(value), nil
 	case OperatorIn:
 		if strings.Contains(value, ",") {
 			return newExpressionCmp(OperatorIn, field, strings.Split(value, ",")), nil
-			// return goqu.C(field).In(strings.Split(value, ",")), nil
 		}
 
 		return newExpressionCmp(OperatorIn, field, value), nil
-		// return goqu.C(field).In(value), nil
 	case OperatorNIn:
 		if strings.Contains(value, ",") {
 			return newExpressionCmp(OperatorNIn, field, strings.Split(value, ",")), nil
-			// return goqu.C(field).NotIn(strings.Split(value, ",")), nil
 		}
 
 		return newExpressionCmp(OperatorNIn, field, value), nil
-		// return goqu.C(field).NotIn(value), nil
 	case OperatorIs:
 		return newExpressionCmp(OperatorIs, field, nil), nil
-		// return goqu.C(field).IsNull(), nil
 	case OperatorIsNot:
 		return newExpressionCmp(OperatorIsNot, field, nil), nil
-		// return goqu.C(field).IsNotNull(), nil
 	}
 
 	return ExpressionCmp{}, fmt.Errorf("unsupported operator: [%s]", operator)
