@@ -16,6 +16,40 @@ type Query struct {
 	Limit  *uint64
 }
 
+func (q *Query) GetValues(v string) []string {
+	if values, ok := q.Values[v]; ok {
+		result := make([]string, 0, len(values))
+
+		for _, v := range values {
+			if vList, ok := v.Value.([]string); ok {
+				result = append(result, vList...)
+			} else {
+				result = append(result, v.Value.(string))
+			}
+		}
+
+		return result
+	}
+
+	return nil
+}
+
+func (q *Query) GetValue(v string) string {
+	if values, ok := q.Values[v]; ok {
+		for _, v := range values {
+			if vList, ok := v.Value.([]string); ok {
+				if len(vList) > 0 {
+					return vList[0]
+				}
+			} else {
+				return v.Value.(string)
+			}
+		}
+	}
+
+	return ""
+}
+
 func (q *Query) Has(v string) bool {
 	if _, ok := q.Values[v]; ok {
 		return true
