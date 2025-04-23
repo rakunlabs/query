@@ -34,6 +34,10 @@ If some value separated by `,` it will be converted to `IN` operator.
 There are a list of `[ ]` operators that can be used in the query string:  
 `eq, ne, gt, lt, gte, lte, like, ilike, nlike, nilike, in, nin, is, not`
 
+`limit` and `offset` are used to limit the number of rows returned. _0_ limit means no limit.  
+`fields` is used to select the fields to be returned, comma separated.  
+`sort` is used to sort the result set, can be prefixed with `-` to indicate descending order and comma separated to indicate multiple fields.
+
 ### Validation
 
 ```go

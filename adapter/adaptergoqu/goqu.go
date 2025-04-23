@@ -112,7 +112,9 @@ func Select(q *query.Query, qq *goqu.SelectDataset, opts ...Option) *goqu.Select
 	}
 
 	if q.Limit != nil {
-		qq = qq.Limit(uint(*q.Limit))
+		if *q.Limit != 0 {
+			qq = qq.Limit(uint(*q.Limit))
+		}
 	}
 
 	return qq
