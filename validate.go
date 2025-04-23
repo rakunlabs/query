@@ -1,8 +1,8 @@
 package query
 
 import (
-	"encoding/json"
 	"fmt"
+	"math/big"
 	"slices"
 )
 
@@ -78,11 +78,11 @@ func WithValues(opts ...optionValidateFunc) OptionValidateSet {
 
 // WithMin to validate the minimum of a value.
 //   - only usable for 'WithValue'
-func WithMin(min json.Number) optionValidateFunc {
+func WithMin(min string) optionValidateFunc {
 	return func(key string, v *Validator, t funcType) error {
-		vMinFloat, err := json.Number(min).Float64()
-		if err != nil {
-			return fmt.Errorf("min value [%s] is not a number", min)
+		vMinBig, ok := new(big.Float).SetString(min)
+		if !ok {
+			return fmt.Errorf("min value [%s] is not a valid number", min)
 		}
 
 		switch t {
@@ -95,16 +95,14 @@ func WithMin(min json.Number) optionValidateFunc {
 							return fmt.Errorf("value [%v] is not a string for number", cmp.Value)
 						}
 
-						cmpFloat, err := json.Number(cmpStr).Float64()
-						if err != nil {
+						cmpBig, ok := new(big.Float).SetString(cmpStr)
+						if !ok {
 							return fmt.Errorf("value [%s] is not a number", cmpStr)
 						}
 
-						if cmpFloat < vMinFloat {
+						if cmpBig.Cmp(vMinBig) < 0 {
 							return fmt.Errorf("value [%s] is less than min [%s]", cmpStr, min)
 						}
-
-						return nil
 					}
 					if cmp.Operator == OperatorIn && cmp.Value != nil {
 						cmpIn, ok := cmp.Value.([]string)
@@ -112,12 +110,12 @@ func WithMin(min json.Number) optionValidateFunc {
 							return fmt.Errorf("value [%v] is not a slice for number", cmp.Value)
 						}
 						for _, val := range cmpIn {
-							cmpFloat, err := json.Number(val).Float64()
-							if err != nil {
+							cmpBig, ok := new(big.Float).SetString(val)
+							if !ok {
 								return fmt.Errorf("value [%s] is not a number", val)
 							}
 
-							if cmpFloat < vMinFloat {
+							if cmpBig.Cmp(vMinBig) < 0 {
 								return fmt.Errorf("value [%s] is less than min [%s]", val, min)
 							}
 						}
@@ -134,11 +132,11 @@ func WithMin(min json.Number) optionValidateFunc {
 
 // WithMax to validate the maximum of a value.
 //   - only usable for 'WithValue'
-func WithMax(max json.Number) optionValidateFunc {
+func WithMax(max string) optionValidateFunc {
 	return func(key string, v *Validator, t funcType) error {
-		vMaxFloat, err := json.Number(max).Float64()
-		if err != nil {
-			return fmt.Errorf("max value [%s] is not a number", max)
+		vMaxBig, ok := new(big.Float).SetString(max)
+		if !ok {
+			return fmt.Errorf("max value [%s] is not a valid number", max)
 		}
 
 		switch t {
@@ -151,16 +149,14 @@ func WithMax(max json.Number) optionValidateFunc {
 							return fmt.Errorf("value [%v] is not a string for number", cmp.Value)
 						}
 
-						cmpFloat, err := json.Number(cmpStr).Float64()
-						if err != nil {
+						cmpBig, ok := new(big.Float).SetString(cmpStr)
+						if !ok {
 							return fmt.Errorf("value [%s] is not a number", cmpStr)
 						}
 
-						if cmpFloat > vMaxFloat {
+						if cmpBig.Cmp(vMaxBig) > 0 {
 							return fmt.Errorf("value [%s] is greater than max [%s]", cmpStr, max)
 						}
-
-						return nil
 					}
 					if cmp.Operator == OperatorIn && cmp.Value != nil {
 						cmpIn, ok := cmp.Value.([]string)
@@ -168,12 +164,12 @@ func WithMax(max json.Number) optionValidateFunc {
 							return fmt.Errorf("value [%v] is not a slice for number", cmp.Value)
 						}
 						for _, val := range cmpIn {
-							cmpFloat, err := json.Number(val).Float64()
-							if err != nil {
+							cmpBig, ok := new(big.Float).SetString(val)
+							if !ok {
 								return fmt.Errorf("value [%s] is not a number", val)
 							}
 
-							if cmpFloat > vMaxFloat {
+							if cmpBig.Cmp(vMaxBig) > 0 {
 								return fmt.Errorf("value [%s] is greater than max [%s]", val, max)
 							}
 						}
