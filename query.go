@@ -11,7 +11,7 @@ type Query struct {
 
 	Select []string
 	Where  []Expression
-	Order  []ExpressionOrder
+	Sort   []ExpressionSort
 	Offset *uint64
 	Limit  *uint64
 }
@@ -164,7 +164,7 @@ func Parse(query string, opts ...OptionQuery) (*Query, error) {
 			if value == "" {
 				continue
 			}
-			result.Order = parseSort(value)
+			result.Sort = parseSort(value)
 		case key == "limit":
 			// Handle limit
 			if value == "" {
@@ -242,13 +242,13 @@ func Parse(query string, opts ...OptionQuery) (*Query, error) {
 }
 
 // parseSort parses the sort parameter and returns the ordered expressions.
-func parseSort(value string) []ExpressionOrder {
+func parseSort(value string) []ExpressionSort {
 	if value == "" {
 		return nil
 	}
 
 	fields := strings.Split(value, ",")
-	orderedExpressions := make([]ExpressionOrder, 0, len(fields))
+	orderedExpressions := make([]ExpressionSort, 0, len(fields))
 
 	for _, field := range fields {
 		switch {
@@ -256,31 +256,31 @@ func parseSort(value string) []ExpressionOrder {
 			// Skip empty fields
 		case strings.HasPrefix(field, "+"):
 			// Ascending order
-			orderedExpressions = append(orderedExpressions, ExpressionOrder{
+			orderedExpressions = append(orderedExpressions, ExpressionSort{
 				Field: field[1:],
 				Desc:  false,
 			})
 		case strings.HasPrefix(field, "-"):
 			// Descending order
-			orderedExpressions = append(orderedExpressions, ExpressionOrder{
+			orderedExpressions = append(orderedExpressions, ExpressionSort{
 				Field: field[1:],
 				Desc:  true,
 			})
 		case strings.HasSuffix(field, ":asc"):
 			// Ascending order
-			orderedExpressions = append(orderedExpressions, ExpressionOrder{
+			orderedExpressions = append(orderedExpressions, ExpressionSort{
 				Field: field[:len(field)-4],
 				Desc:  false,
 			})
 		case strings.HasSuffix(field, ":desc"):
 			// Descending order
-			orderedExpressions = append(orderedExpressions, ExpressionOrder{
+			orderedExpressions = append(orderedExpressions, ExpressionSort{
 				Field: field[:len(field)-5],
 				Desc:  true,
 			})
 		default:
 			// Ascending order
-			orderedExpressions = append(orderedExpressions, ExpressionOrder{
+			orderedExpressions = append(orderedExpressions, ExpressionSort{
 				Field: field,
 				Desc:  false,
 			})

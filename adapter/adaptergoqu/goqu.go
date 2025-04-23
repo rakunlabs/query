@@ -110,9 +110,9 @@ func Select(q *query.Query, qq *goqu.SelectDataset, opts ...Option) *goqu.Select
 		qq = qq.Where(Expression(q, opts...)...)
 	}
 
-	if len(q.Order) > 0 {
-		order := make([]exp.OrderedExpression, 0, len(q.Order))
-		for _, o := range q.Order {
+	if len(q.Sort) > 0 {
+		order := make([]exp.OrderedExpression, 0, len(q.Sort))
+		for _, o := range q.Sort {
 			field := o.Field
 			if rename, ok := opt.Rename[field]; ok {
 				field = rename

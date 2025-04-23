@@ -31,7 +31,7 @@ func TestParseQuery(t *testing.T) {
 					newExpressionCmp(OperatorIn, "name", []string{"foo", "a/b"}),
 					newExpressionCmp(OperatorEq, "age", "1"),
 				},
-				Order: []ExpressionOrder{
+				Sort: []ExpressionSort{
 					{
 						Field: "age",
 						Desc:  true,
@@ -58,7 +58,7 @@ func TestParseQuery(t *testing.T) {
 					},
 					newExpressionCmp(OperatorEq, "age", "1"),
 				},
-				Order: []ExpressionOrder{
+				Sort: []ExpressionSort{
 					{
 						Field: "age",
 						Desc:  false,
@@ -91,8 +91,8 @@ func TestParseQuery(t *testing.T) {
 				t.Fatalf("ParseQuery() = \n%#v\n, want \n%#v\n", got.Where, tt.want.Where)
 			}
 
-			if !reflect.DeepEqual(got.Order, tt.want.Order) {
-				t.Fatalf("ParseQuery() = \n%#v\n, want \n%#v\n", got.Order, tt.want.Order)
+			if !reflect.DeepEqual(got.Sort, tt.want.Sort) {
+				t.Fatalf("ParseQuery() = \n%#v\n, want \n%#v\n", got.Sort, tt.want.Sort)
 			}
 
 			if !reflect.DeepEqual(got.Select, tt.want.Select) {

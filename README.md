@@ -62,6 +62,21 @@ There are a list of `[ ]` operators that can be used in the query string:
 - `WithMax` is used to validate the maximum of value, value must be a number.
 - `WithMin` is used to validate the minimum of value, value must be a number.
 
+`query.WithOffset` is used to validate the offset value.
+- `WithMax` is used to validate the maximum of offset, value must be a number.
+- `WithMin` is used to validate the minimum of offset, value must be a number.
+- `WithNotAllowed` is used to validate the offset value that are not allowed.
+
+`query.WithLimit` is used to validate the limit value.
+- `WithMax` is used to validate the maximum of limit, value must be a number.
+- `WithMin` is used to validate the minimum of limit, value must be a number.
+- `WithNotAllowed` is used to validate the limit value that are not allowed.
+
+`query.WithSort` is used to validate the sort value.
+- `WithNotIn` is used to validate the sort value that are not allowed.
+- `WithIn` is used to validate the sort value that are allowed.
+- `WithNotAllowed` is used to validate the sort value that are not allowed.
+
 Example of validation:
 
 ```go

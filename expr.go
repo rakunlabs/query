@@ -73,7 +73,7 @@ func (e ExpressionLogic) Expression() Expression {
 	return e
 }
 
-type ExpressionOrder struct {
+type ExpressionSort struct {
 	// Field is the field name to order by.
 	Field string
 	// Desc indicates whether the order is descending.

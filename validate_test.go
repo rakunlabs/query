@@ -6,106 +6,123 @@ import (
 )
 
 func TestQuery_Validate(t *testing.T) {
-	type fields struct {
-		URL string
+	type subCase struct {
+		URL     string
+		wantErr bool
 	}
 	type args struct {
 		opts []OptionValidateSet
 	}
 	tests := []struct {
-		name    string
-		fields  fields
-		args    args
-		wantErr bool
+		name  string
+		cases []subCase
+		args  args
 	}{
 		{
 			name: "invalid age",
-			fields: fields{
-				URL: "http://example.com?age=10000&fields=name,age&sort=age,-name&offset=10&limit=20",
+			cases: []subCase{
+				{
+					URL:     "http://example.com?age=10000&fields=name,age&sort=age,-name&offset=10&limit=20",
+					wantErr: true,
+				},
 			},
 			args: args{
 				opts: []OptionValidateSet{
 					WithValue("age", WithMin("0"), WithMax("200")),
 				},
 			},
-			wantErr: true,
 		},
 		{
 			name: "invalid age",
-			fields: fields{
-				URL: "http://example.com?age=10000,500&fields=name,age&sort=age,-name&offset=10&limit=20",
+			cases: []subCase{
+				{
+					URL:     "http://example.com?age=10000,500&fields=name,age&sort=age,-name&offset=10&limit=20",
+					wantErr: true,
+				},
 			},
 			args: args{
 				opts: []OptionValidateSet{
 					WithValue("age", WithMin("0"), WithMax("200")),
 				},
 			},
-			wantErr: true,
 		},
 		{
 			name: "not a member",
-			fields: fields{
-				URL: "http://example.com?member=Z",
+			cases: []subCase{
+				{
+					URL:     "http://example.com?member=Z",
+					wantErr: true,
+				},
 			},
 			args: args{
 				opts: []OptionValidateSet{
 					WithValue("member", WithIn("X", "Y")),
 				},
 			},
-			wantErr: true,
 		},
 		{
 			name: "not a member list",
-			fields: fields{
-				URL: "http://example.com?member=X,Z",
+			cases: []subCase{
+				{
+					URL:     "http://example.com?member=X,Z",
+					wantErr: true,
+				},
 			},
 			args: args{
 				opts: []OptionValidateSet{
 					WithValue("member", WithIn("X", "Y")),
 				},
 			},
-			wantErr: true,
 		},
 		{
 			name: "not in",
-			fields: fields{
-				URL: "http://example.com?member=X,Z",
+			cases: []subCase{
+				{
+					URL:     "http://example.com?member=X,Z",
+					wantErr: false,
+				},
 			},
 			args: args{
 				opts: []OptionValidateSet{
 					WithValue("member", WithNotIn("O", "P", "S")),
 				},
 			},
-			wantErr: false,
 		},
 		{
 			name: "required",
-			fields: fields{
-				URL: "http://example.com?member[in]=x",
+			cases: []subCase{
+				{
+					URL:     "http://example.com?member[in]=x",
+					wantErr: false,
+				},
 			},
 			args: args{
 				opts: []OptionValidateSet{
 					WithValue("member", WithNotEmpty()),
 				},
 			},
-			wantErr: false,
 		},
 		{
 			name: "required",
-			fields: fields{
-				URL: "http://example.com?fields=name,age&sort=age,-name&offset=10&limit=20",
+			cases: []subCase{
+				{
+					URL:     "http://example.com?fields=name,age&sort=age,-name&offset=10&limit=20",
+					wantErr: true,
+				},
 			},
 			args: args{
 				opts: []OptionValidateSet{
 					WithField(WithIn("X")),
 				},
 			},
-			wantErr: true,
 		},
 		{
 			name: "not allowed",
-			fields: fields{
-				URL: "http://example.com?age=5&fields=name,age&sort=age,-name&offset=10&limit=20",
+			cases: []subCase{
+				{
+					URL:     "http://example.com?age=5&fields=name,age&sort=age,-name&offset=10&limit=20",
+					wantErr: true,
+				},
 			},
 			args: args{
 				opts: []OptionValidateSet{
@@ -113,24 +130,28 @@ func TestQuery_Validate(t *testing.T) {
 					WithValues(WithNotAllowed()),
 				},
 			},
-			wantErr: true,
 		},
 		{
 			name: "values in",
-			fields: fields{
-				URL: "http://example.com?age=5",
+			cases: []subCase{
+				{
+					URL:     "http://example.com?age=5",
+					wantErr: false,
+				},
 			},
 			args: args{
 				opts: []OptionValidateSet{
 					WithValues(WithIn("age", "test")),
 				},
 			},
-			wantErr: false,
 		},
 		{
 			name: "values operator",
-			fields: fields{
-				URL: "http://example.com?age=5",
+			cases: []subCase{
+				{
+					URL:     "http://example.com?age=5",
+					wantErr: false,
+				},
 			},
 			args: args{
 				opts: []OptionValidateSet{
@@ -139,28 +160,161 @@ func TestQuery_Validate(t *testing.T) {
 					WithValue("test", WithNotAllowed()),
 				},
 			},
-			wantErr: false,
+		},
+		{
+			name: "limit min max",
+			cases: []subCase{
+				{
+					URL:     "http://example.com?limit=200",
+					wantErr: true,
+				},
+				{
+					URL:     "http://example.com?limit=100",
+					wantErr: false,
+				},
+				{
+					URL:     "http://example.com?limit=0",
+					wantErr: true,
+				},
+				{
+					URL:     "http://example.com?limit=1",
+					wantErr: false,
+				},
+			},
+			args: args{
+				opts: []OptionValidateSet{
+					WithLimit(WithMin("1"), WithMax("100")),
+				},
+			},
+		},
+		{
+			name: "offset min max",
+			cases: []subCase{
+				{
+					URL:     "http://example.com?offset=200",
+					wantErr: true,
+				},
+				{
+					URL:     "http://example.com?offset=100",
+					wantErr: false,
+				},
+				{
+					URL:     "http://example.com?offset=0",
+					wantErr: true,
+				},
+				{
+					URL:     "http://example.com?offset=1",
+					wantErr: false,
+				},
+			},
+			args: args{
+				opts: []OptionValidateSet{
+					WithOffset(WithMin("1"), WithMax("100")),
+				},
+			},
+		},
+		{
+			name: "limit not allowed",
+			cases: []subCase{
+				{
+					URL:     "http://example.com?limit=200",
+					wantErr: true,
+				},
+			},
+			args: args{
+				opts: []OptionValidateSet{
+					WithLimit(WithNotAllowed()),
+				},
+			},
+		},
+		{
+			name: "offset not allowed",
+			cases: []subCase{
+				{
+					URL:     "http://example.com?offset=200",
+					wantErr: true,
+				},
+			},
+			args: args{
+				opts: []OptionValidateSet{
+					WithOffset(WithNotAllowed()),
+				},
+			},
+		},
+		{
+			name: "sort not allowed",
+			cases: []subCase{
+				{
+					URL:     "http://example.com?sort=age,-name",
+					wantErr: true,
+				},
+			},
+			args: args{
+				opts: []OptionValidateSet{
+					WithSort(WithNotAllowed()),
+				},
+			},
+		},
+		{
+			name: "sort in",
+			cases: []subCase{
+				{
+					URL:     "http://example.com?sort=age,-name",
+					wantErr: false,
+				},
+				{
+					URL:     "http://example.com?sort=age,-name,test",
+					wantErr: true,
+				},
+			},
+			args: args{
+				opts: []OptionValidateSet{
+					WithSort(WithIn("age", "name")),
+				},
+			},
+		},
+		{
+			name: "sort not in",
+			cases: []subCase{
+				{
+					URL:     "http://example.com?sort=age,-name",
+					wantErr: true,
+				},
+				{
+					URL:     "http://example.com?sort=-name,test",
+					wantErr: false,
+				},
+			},
+			args: args{
+				opts: []OptionValidateSet{
+					WithSort(WithNotIn("age")),
+				},
+			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			urlParsed, err := url.Parse(tt.fields.URL)
-			if err != nil {
-				t.Fatalf("failed to parse URL: %v", err)
-			}
-
-			q, err := Parse(urlParsed.RawQuery)
-			if err != nil {
-				t.Fatalf("failed to parse query: %v", err)
-			}
-
 			validate, err := NewValidator(tt.args.opts...)
 			if err != nil {
 				t.Fatalf("failed to create validator: %v", err)
 			}
 
-			if err := q.Validate(validate); (err != nil) != tt.wantErr {
-				t.Errorf("Query.Validate() error = %v, wantErr %v", err, tt.wantErr)
+			for _, tc := range tt.cases {
+				t.Logf("[%s] case %s", tt.name, tc.URL)
+
+				urlParsed, err := url.Parse(tc.URL)
+				if err != nil {
+					t.Fatalf("failed to parse URL: %v", err)
+				}
+
+				q, err := Parse(urlParsed.RawQuery)
+				if err != nil {
+					t.Fatalf("failed to parse query: %v", err)
+				}
+
+				if err := q.Validate(validate); (err != nil) != tc.wantErr {
+					t.Errorf("Query.Validate() error = %v, wantErr %v", err, tc.wantErr)
+				}
 			}
 		})
 	}
