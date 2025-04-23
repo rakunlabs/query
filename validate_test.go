@@ -81,11 +81,11 @@ func TestQuery_Validate(t *testing.T) {
 		{
 			name: "required",
 			fields: fields{
-				URL: "http://example.com?member=X",
+				URL: "http://example.com?member[in]=x",
 			},
 			args: args{
 				opts: []OptionValidateSet{
-					WithValue("member", WithRequired()),
+					WithValue("member", WithNotEmpty()),
 				},
 			},
 			wantErr: false,
@@ -134,8 +134,9 @@ func TestQuery_Validate(t *testing.T) {
 			},
 			args: args{
 				opts: []OptionValidateSet{
-					WithValues(WithIn("age", "test")),
+					WithValues(WithIn("age")),
 					WithValue("age", WithOperator(OperatorEq), WithNotOperator(OperatorIn)),
+					WithValue("test", WithNotAllowed()),
 				},
 			},
 			wantErr: false,

@@ -9,6 +9,8 @@ import (
 type OperatorCmpType string
 
 const (
+	// OperatorEmpty is the empty operator.
+	OperatorEmpty OperatorCmpType = ""
 	// OperatorEq is the equality operator.
 	OperatorEq OperatorCmpType = "eq"
 	// OperatorNe is the not equal operator.
@@ -141,7 +143,7 @@ func parseExpression(key, valueRaw string) (ExpressionCmp, error) {
 		return newExpressionCmp(OperatorNLike, field, value), nil
 	case OperatorNILike:
 		return newExpressionCmp(OperatorNILike, field, value), nil
-	case OperatorIn:
+	case OperatorIn, OperatorEmpty:
 		if strings.Contains(value, ",") {
 			return newExpressionCmp(OperatorIn, field, strings.Split(value, ",")), nil
 		}

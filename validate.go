@@ -3,6 +3,7 @@ package query
 import (
 	"encoding/json"
 	"fmt"
+	"slices"
 )
 
 type funcType int
@@ -333,19 +334,12 @@ func WithNotEmpty() optionValidateFunc {
 		switch t {
 		case valueType:
 			v.value[key] = append(v.value[key], func(q *Query) error {
-				for _, cmp := range q.Values[key] {
-					if cmp.Operator == OperatorEq && cmp.Value != nil {
-						cmpStr, ok := cmp.Value.(string)
-						if !ok {
-							return fmt.Errorf("value [%v] is not a string for not empty", cmp.Value)
-						}
-
-						if cmpStr == "" {
-							return fmt.Errorf("value [%s] is empty", cmp)
-						}
-
-						return nil
-					}
+				values := q.GetValues(key)
+				if len(values) == 0 {
+					return fmt.Errorf("value [%s] is empty", key)
+				}
+				if slices.Contains(values, "") {
+					return fmt.Errorf("value [%s] is empty", key)
 				}
 
 				return nil
@@ -363,10 +357,9 @@ func WithRequired() optionValidateFunc {
 		switch t {
 		case valueType:
 			v.value[key] = append(v.value[key], func(q *Query) error {
-				for _, cmp := range q.Values[key] {
-					if cmp.Operator == OperatorEq && cmp.Value != nil {
-						return nil
-					}
+				values := q.GetValues(key)
+				if len(values) > 0 {
+					return nil
 				}
 
 				return fmt.Errorf("value [%s] is required", key)
@@ -398,10 +391,8 @@ func WithNotAllowed() optionValidateFunc {
 			})
 		case valueType:
 			v.value[key] = append(v.value[key], func(q *Query) error {
-				for _, cmp := range q.Values[key] {
-					if cmp.Field != "" {
-						return fmt.Errorf("value [%s] is not allowed", cmp)
-					}
+				if len(q.Values[key]) > 0 {
+					return fmt.Errorf("value [%s] is not allowed", key)
 				}
 
 				return nil

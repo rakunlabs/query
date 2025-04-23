@@ -36,16 +36,40 @@ There are a list of `[ ]` operators that can be used in the query string:
 
 `limit` and `offset` are used to limit the number of rows returned. _0_ limit means no limit.  
 `fields` is used to select the fields to be returned, comma separated.  
-`sort` is used to sort the result set, can be prefixed with `-` to indicate descending order and comma separated to indicate multiple fields.
+`sort` is used to sort the result set, can be prefixed with `-` to indicate descending order and comma separated to indicate multiple fields.  
+`[]` empty operator means `in` operator.
 
 ### Validation
 
+`query.WithField` is used to validate the field names.
+- `WithNotIn` is used to validate the field names that are not allowed.
+- `WithIn` is used to validate the field names that are allowed.
+- `WithNotAllowed` is used to validate the field names totally not allowed.
+
+`query.WithValues` is used to validate the values of the fields.
+- `WithNotIn` is used to validate the values that are not allowed.
+- `WithIn` is used to validate the values that are allowed.
+- `WithNotAllowed` is used to validate the values totally not allowed.
+
+`query.WithValue` is used to validate the values of the fields.
+- `WithRequired` is used to validate the values that are required.
+- `WithNotEmpty` is used to validate the values that are not empty.
+- `WithNotIn` is used to validate the values that are not allowed.
+- `WithIn` is used to validate the values that are allowed.
+- `WithNotAllowed` is used to validate the value that are not allowed.
+- `WithOperator` is used to validate the operator that is allowed.
+- `WithNotOperator` is used to validate the operator that is not allowed.
+- `WithMax` is used to validate the maximum of value, value must be a number.
+- `WithMin` is used to validate the minimum of value, value must be a number.
+
+Example of validation:
+
 ```go
 validator := query.NewValidator(
-    WithValue("member", WithRequired(), WithNotIn("O", "P", "S")),
-    WithValues(WithIn("age", "test", "member")),
-    WithValue("age", WithOperator(OperatorEq), WithNotOperator(OperatorIn)),
-    WithField(WithNotAllowed()),
+    WithValue("member", query.WithRequired(), query.WithNotIn("O", "P", "S")),
+    WithValues(query.WithIn("age", "test", "member")),
+    WithValue("age", query.WithOperator(OperatorEq), query.WithNotOperator(OperatorIn)),
+    WithField(query.WithNotAllowed()),
 )
 
 // after that use it to validate
@@ -53,4 +77,8 @@ err := validator.Validate(query)
 if err != nil {
     // handle error
 }
+
+// or pass with when parsing
+query, err := query.Parse(rawQuery, query.WithValidator(validator))
+// ...
 ```

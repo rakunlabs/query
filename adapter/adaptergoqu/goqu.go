@@ -8,7 +8,7 @@ import (
 	"github.com/worldline-go/query"
 )
 
-func Select(q *query.Query, qq *goqu.SelectDataset, opts ...Option) *goqu.SelectDataset {
+func Expression(q *query.Query, opts ...Option) []exp.Expression {
 	opt := &option{}
 	for _, o := range opts {
 		o(opt)
@@ -19,27 +19,7 @@ func Select(q *query.Query, qq *goqu.SelectDataset, opts ...Option) *goqu.Select
 	}
 
 	if q == nil {
-		return qq
-	}
-
-	var selects []string
-	if len(q.Select) > 0 {
-		selects = q.Select
-	} else if len(opt.DefaultSelect) > 0 {
-		selects = opt.DefaultSelect
-	}
-
-	if len(selects) > 0 {
-		selectsAny := make([]any, 0, len(selects))
-		for _, s := range selects {
-			if rename, ok := opt.Rename[s]; ok {
-				s = rename
-			}
-
-			selectsAny = append(selectsAny, goqu.I(s))
-		}
-
-		qq = qq.Select(selectsAny...)
+		return nil
 	}
 
 	if len(q.Where) > 0 {
@@ -86,7 +66,48 @@ func Select(q *query.Query, qq *goqu.SelectDataset, opts ...Option) *goqu.Select
 			return nil
 		})
 
-		qq = qq.Where(where...)
+		return where
+	}
+
+	return nil
+}
+
+func Select(q *query.Query, qq *goqu.SelectDataset, opts ...Option) *goqu.SelectDataset {
+	opt := &option{}
+	for _, o := range opts {
+		o(opt)
+	}
+
+	if opt.Edit != nil {
+		q = opt.Edit(q)
+	}
+
+	if q == nil {
+		return qq
+	}
+
+	var selects []string
+	if len(q.Select) > 0 {
+		selects = q.Select
+	} else if len(opt.DefaultSelect) > 0 {
+		selects = opt.DefaultSelect
+	}
+
+	if len(selects) > 0 {
+		selectsAny := make([]any, 0, len(selects))
+		for _, s := range selects {
+			if rename, ok := opt.Rename[s]; ok {
+				s = rename
+			}
+
+			selectsAny = append(selectsAny, goqu.I(s))
+		}
+
+		qq = qq.Select(selectsAny...)
+	}
+
+	if len(q.Where) > 0 {
+		qq = qq.Where(Expression(q, opts...)...)
 	}
 
 	if len(q.Order) > 0 {
