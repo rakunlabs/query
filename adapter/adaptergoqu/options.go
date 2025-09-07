@@ -1,6 +1,6 @@
 package adaptergoqu
 
-import "github.com/worldline-go/query"
+import "github.com/rakunlabs/query"
 
 type option struct {
 	Edit          func(q *query.Query) *query.Query

@@ -5,7 +5,7 @@ import (
 
 	"github.com/doug-martin/goqu/v9"
 	"github.com/doug-martin/goqu/v9/exp"
-	"github.com/worldline-go/query"
+	"github.com/rakunlabs/query"
 )
 
 func Expression(q *query.Query, opts ...Option) []exp.Expression {

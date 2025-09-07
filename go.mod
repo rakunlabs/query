@@ -1,4 +1,4 @@
-module github.com/worldline-go/query
+module github.com/rakunlabs/query
 
 go 1.24
 

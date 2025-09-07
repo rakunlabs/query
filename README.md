@@ -1,15 +1,15 @@
 # Query
 
-[![License](https://img.shields.io/github/license/worldline-go/query?color=red&style=flat-square)](https://raw.githubusercontent.com/worldline-go/query/main/LICENSE)
-[![Coverage](https://img.shields.io/sonar/coverage/worldline-go_query?logo=sonarcloud&server=https%3A%2F%2Fsonarcloud.io&style=flat-square)](https://sonarcloud.io/summary/overall?id=worldline-go_query)
-[![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/worldline-go/query/test.yml?branch=main&logo=github&style=flat-square&label=ci)](https://github.com/worldline-go/query/actions)
-[![Go Report Card](https://goreportcard.com/badge/github.com/worldline-go/query?style=flat-square)](https://goreportcard.com/report/github.com/worldline-go/query)
-[![Go PKG](https://raw.githubusercontent.com/worldline-go/guide/main/badge/custom/reference.svg)](https://pkg.go.dev/github.com/worldline-go/query)
+[![License](https://img.shields.io/github/license/rankunlabs/query?color=red&style=flat-square)](https://raw.githubusercontent.com/rankunlabs/query/main/LICENSE)
+[![Coverage](https://img.shields.io/sonar/coverage/rankunlabs_query?logo=sonarcloud&server=https%3A%2F%2Fsonarcloud.io&style=flat-square)](https://sonarcloud.io/summary/overall?id=rankunlabs_query)
+[![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/rankunlabs/query/test.yml?branch=main&logo=github&style=flat-square&label=ci)](https://github.com/rakunlabs/query/actions)
+[![Go Report Card](https://goreportcard.com/badge/github.com/rakunlabs/query?style=flat-square)](https://goreportcard.com/report/github.com/rakunlabs/query)
+[![Go PKG](https://raw.githubusercontent.com/rankunlabs/guide/main/badge/custom/reference.svg)](https://pkg.go.dev/github.com/rakunlabs/query)
 
 Query is an adaptor of http query to expressions. Check adapters to convert it to sql or other expressions.
 
 ```sh
-go get github.com/worldline-go/query
+go get github.com/rakunlabs/query
 ```
 
 ## Usage

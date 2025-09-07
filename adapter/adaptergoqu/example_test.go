@@ -6,8 +6,8 @@ import (
 	"testing"
 
 	"github.com/doug-martin/goqu/v9"
-	"github.com/worldline-go/query"
-	"github.com/worldline-go/query/adapter/adaptergoqu"
+	"github.com/rakunlabs/query"
+	"github.com/rakunlabs/query/adapter/adaptergoqu"
 )
 
 func ExampleParseQuery() {
