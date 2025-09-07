@@ -4,7 +4,7 @@
 [![Coverage](https://img.shields.io/sonar/coverage/rakunlabs_query?logo=sonarcloud&server=https%3A%2F%2Fsonarcloud.io&style=flat-square)](https://sonarcloud.io/summary/overall?id=rakunlabs_query)
 [![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/rakunlabs/query/test.yml?branch=main&logo=github&style=flat-square&label=ci)](https://github.com/rakunlabs/query/actions)
 [![Go Report Card](https://goreportcard.com/badge/github.com/rakunlabs/query?style=flat-square)](https://goreportcard.com/report/github.com/rakunlabs/query)
-[![Go PKG](https://raw.githubusercontent.com/rakunlabs/guide/main/badge/custom/reference.svg)](https://pkg.go.dev/github.com/rakunlabs/query)
+[![Go PKG](https://raw.githubusercontent.com/rakunlabs/.github/main/assets/badges/gopkg.svg)](https://pkg.go.dev/github.com/rakunlabs/query)
 
 Query is an adaptor of http query to expressions. Check adapters to convert it to sql or other expressions.
 
