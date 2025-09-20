@@ -189,6 +189,9 @@ func exprCmpToGoqu(e query.ExpressionCmp, rename map[string]string) (goqu.Expres
 		return fieldI.IsNull(), nil
 	case query.OperatorIsNot:
 		return fieldI.IsNotNull(), nil
+	case query.OperatorKV:
+		// For JSONB containment (@>) operator
+		return goqu.L("? @> ?", fieldI, e.Value), nil
 	}
 
 	return nil, fmt.Errorf("unsupported operator: [%s]", e.Operator)

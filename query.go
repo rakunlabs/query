@@ -2,6 +2,7 @@ package query
 
 import (
 	"fmt"
+	"net/url"
 	"strconv"
 	"strings"
 )
@@ -104,6 +105,79 @@ func (q *Query) CloneOffset() *uint64 {
 	return nil
 }
 
+func New() *Query {
+	return &Query{
+		Values: make(map[string][]ExpressionCmp),
+	}
+}
+
+func (q *Query) AddField(fields ...string) *Query {
+	q.Select = append(q.Select, fields...)
+
+	return q
+}
+
+func (q *Query) AddSort(sorts ...ExpressionSort) *Query {
+	q.Sort = append(q.Sort, sorts...)
+
+	return q
+}
+
+// SetLimit sets the limit for the query.
+//   - if limit is <= 0, it means no limit.
+func (q *Query) SetLimit(limit uint64) *Query {
+	if limit <= 0 {
+		q.Limit = nil
+		return q
+	}
+
+	q.Limit = &limit
+	return q
+}
+
+// SetOffset sets the offset for the query.
+//   - if offset is <= 0, it means no offset.
+func (q *Query) SetOffset(offset uint64) *Query {
+	if offset <= 0 {
+		q.Offset = nil
+		return q
+	}
+
+	q.Offset = &offset
+	return q
+}
+
+func (q *Query) AddWhere(exprs ...Expression) *Query {
+	q.Where = append(q.Where, exprs...)
+
+	for _, expr := range exprs {
+		q.valuesExpression(expr)
+	}
+
+	return q
+}
+
+func (q *Query) valuesExpression(expr Expression) {
+	if expr == nil {
+		return
+	}
+
+	switch expr := expr.(type) {
+	case ExpressionCmp:
+		q.Values[expr.Field] = append(q.Values[expr.Field], expr)
+	case ExpressionLogic:
+		for _, e := range expr.List {
+			if e == nil {
+				continue
+			}
+
+			q.valuesExpression(e)
+		}
+	}
+}
+
+// /////////////////////////////////////////////////////////////////////////////////////////
+
 func ParseWithValidator(query string, validator *Validator, opts ...OptionQuery) (*Query, error) {
 	q, err := Parse(query, opts...)
 	if err != nil {
@@ -147,25 +221,25 @@ func Parse(query string, opts ...OptionQuery) (*Query, error) {
 		key := kv[0]
 		value := kv[1]
 
-		switch {
-		case key == "fields":
+		switch key {
+		case "fields":
 			// Handle field selection
 			if value == "" {
 				continue
 			}
 
-			for _, field := range strings.Split(value, ",") {
+			for field := range strings.SplitSeq(value, ",") {
 				if field != "" {
 					result.Select = append(result.Select, field)
 				}
 			}
-		case key == "sort":
+		case "sort":
 			// Handle sorting
 			if value == "" {
 				continue
 			}
 			result.Sort = parseSort(value)
-		case key == "limit":
+		case "limit":
 			// Handle limit
 			if value == "" {
 				continue
@@ -175,7 +249,7 @@ func Parse(query string, opts ...OptionQuery) (*Query, error) {
 				return nil, fmt.Errorf("invalid limit value: %s", value)
 			}
 			result.Limit = &limit
-		case key == "offset":
+		case "offset":
 			// Handle offset
 			if value == "" {
 				continue
@@ -291,14 +365,19 @@ func parseSort(value string) []ExpressionSort {
 }
 
 // parseFilter parses filter expressions from key-value pairs.
-func parseFilter(key, value string) (Expression, error) {
+func parseFilter(keyRaw, value string) (Expression, error) {
+	key, err := url.QueryUnescape(keyRaw)
+	if err != nil {
+		return nil, err
+	}
+
 	switch {
 	case strings.Contains(value, "|"):
 		// Handle OR conditions with different fields
 		parts := strings.Split(value, "|")
 		exs := make([]Expression, 0, len(parts))
 
-		exp, err := parseExpression(key, parts[0])
+		exp, err := ParseExpression(key, parts[0])
 		if err != nil {
 			return nil, err
 		}
@@ -313,7 +392,12 @@ func parseFilter(key, value string) (Expression, error) {
 				kv = append(kv, "")
 			}
 
-			exp, err := parseExpression(kv[0], kv[1])
+			kvKey, err := url.QueryUnescape(kv[0])
+			if err != nil {
+				return nil, err
+			}
+
+			exp, err := ParseExpression(kvKey, kv[1])
 			if err != nil {
 				return nil, err
 			}
@@ -326,6 +410,6 @@ func parseFilter(key, value string) (Expression, error) {
 			List:     exs,
 		}, nil
 	default:
-		return parseExpression(key, value)
+		return ParseExpression(key, value)
 	}
 }

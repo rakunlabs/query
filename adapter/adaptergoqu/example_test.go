@@ -40,7 +40,7 @@ func BenchmarkParseQuery(b *testing.B) {
 
 	b.ReportAllocs()
 
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		parsedURL, err := url.Parse(urlStr)
 		if err != nil {
 			b.Fatalf("failed to parse URL: %v", err)

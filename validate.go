@@ -384,8 +384,6 @@ func WithNotIn(values ...string) optionValidateFunc {
 					if _, ok := valuesMap[cmp]; ok {
 						return fmt.Errorf("value [%s] is in %v", cmp, values)
 					}
-
-					return nil
 				}
 
 				return nil
@@ -534,8 +532,8 @@ func WithNotAllowed() optionValidateFunc {
 
 // WithOperator to validate the operator is allowed.
 //   - Usable for 'WithValue'
-func WithOperator(operators ...OperatorCmpType) optionValidateFunc {
-	operatorsMap := make(map[OperatorCmpType]struct{}, len(operators))
+func WithOperator(operators ...operatorCmpType) optionValidateFunc {
+	operatorsMap := make(map[operatorCmpType]struct{}, len(operators))
 	for _, op := range operators {
 		operatorsMap[op] = struct{}{}
 	}
@@ -560,8 +558,8 @@ func WithOperator(operators ...OperatorCmpType) optionValidateFunc {
 
 // WithNotOperator to validate the operator is not allowed.
 //   - Usable for 'WithValue'
-func WithNotOperator(operators ...OperatorCmpType) optionValidateFunc {
-	operatorsMap := make(map[OperatorCmpType]struct{}, len(operators))
+func WithNotOperator(operators ...operatorCmpType) optionValidateFunc {
+	operatorsMap := make(map[operatorCmpType]struct{}, len(operators))
 	for _, op := range operators {
 		operatorsMap[op] = struct{}{}
 	}

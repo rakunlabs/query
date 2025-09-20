@@ -6,48 +6,50 @@ import (
 	"strings"
 )
 
-type OperatorCmpType string
+type operatorCmpType string
 
 const (
 	// OperatorEmpty is the empty operator.
-	OperatorEmpty OperatorCmpType = ""
+	OperatorEmpty operatorCmpType = ""
 	// OperatorEq is the equality operator.
-	OperatorEq OperatorCmpType = "eq"
+	OperatorEq operatorCmpType = "eq"
 	// OperatorNe is the not equal operator.
-	OperatorNe OperatorCmpType = "ne"
+	OperatorNe operatorCmpType = "ne"
 	// OperatorGt is the greater than operator.
-	OperatorGt OperatorCmpType = "gt"
+	OperatorGt operatorCmpType = "gt"
 	// OperatorLt is the less than operator.
-	OperatorLt OperatorCmpType = "lt"
+	OperatorLt operatorCmpType = "lt"
 	// OperatorGte is the greater than or equal operator.
-	OperatorGte OperatorCmpType = "gte"
+	OperatorGte operatorCmpType = "gte"
 	// OperatorLte is the less than or equal operator.
-	OperatorLte OperatorCmpType = "lte"
+	OperatorLte operatorCmpType = "lte"
 	// OperatorLike is the like operator.
-	OperatorLike OperatorCmpType = "like"
+	OperatorLike operatorCmpType = "like"
 	// OperatorILike is the case insensitive like operator.
-	OperatorILike OperatorCmpType = "ilike"
+	OperatorILike operatorCmpType = "ilike"
 	// OperatorNLike is the not like operator.
-	OperatorNLike OperatorCmpType = "nlike"
+	OperatorNLike operatorCmpType = "nlike"
 	// OperatorNILike is the case insensitive not like operator.
-	OperatorNILike OperatorCmpType = "nilike"
+	OperatorNILike operatorCmpType = "nilike"
 	// OperatorIn is the in operator.
-	OperatorIn OperatorCmpType = "in"
+	OperatorIn operatorCmpType = "in"
 	// OperatorNIn is the not in operator.
-	OperatorNIn OperatorCmpType = "nin"
+	OperatorNIn operatorCmpType = "nin"
 	// OperatorIs is the is null operator.
-	OperatorIs OperatorCmpType = "is"
+	OperatorIs operatorCmpType = "is"
 	// OperatorIsNot is the is not null operator.
-	OperatorIsNot OperatorCmpType = "not"
+	OperatorIsNot operatorCmpType = "not"
+	// OperatorKV is the contains operator JSONB types.
+	OperatorKV operatorCmpType = "kv"
 )
 
-type OperatorLogicType string
+type operatorLogicType string
 
 const (
 	// OperatorAnd is the AND operator.
-	OperatorAnd OperatorLogicType = "and"
+	OperatorAnd operatorLogicType = "and"
 	// OperatorOr is the OR operator.
-	OperatorOr OperatorLogicType = "or"
+	OperatorOr operatorLogicType = "or"
 )
 
 type Expression interface {
@@ -55,7 +57,7 @@ type Expression interface {
 }
 
 type ExpressionCmp struct {
-	Operator OperatorCmpType
+	Operator operatorCmpType
 	Field    string
 	Value    any
 }
@@ -65,7 +67,7 @@ func (e ExpressionCmp) Expression() Expression {
 }
 
 type ExpressionLogic struct {
-	Operator OperatorLogicType
+	Operator operatorLogicType
 	List     []Expression
 }
 
@@ -80,7 +82,7 @@ type ExpressionSort struct {
 	Desc bool
 }
 
-func newExpressionCmp(operator OperatorCmpType, field string, value any) ExpressionCmp {
+func NewExpressionCmp(operator operatorCmpType, field string, value any) ExpressionCmp {
 	return ExpressionCmp{
 		Operator: operator,
 		Field:    field,
@@ -103,10 +105,10 @@ func parseFieldWithOperator(input string) (field string, op string, hasOp bool) 
 	return input, "", false
 }
 
-// parseExpression parses a single expression from key-value pairs.
+// ParseExpression parses a single expression from key-value pairs.
 //   - key -> key[eq]
-//   - eq, ne, gt, lt, gte, lte, like, ilike, nlike, nilike, in, nin, is, not
-func parseExpression(key, valueRaw string) (ExpressionCmp, error) {
+//   - eq, ne, gt, lt, gte, lte, like, ilike, nlike, nilike, in, nin, is, not, kv
+func ParseExpression(key, valueRaw string) (ExpressionCmp, error) {
 	value, err := url.QueryUnescape(valueRaw)
 	if err != nil {
 		return ExpressionCmp{}, err
@@ -116,49 +118,82 @@ func parseExpression(key, valueRaw string) (ExpressionCmp, error) {
 
 	if !hasOperator {
 		if strings.Contains(value, ",") {
-			return newExpressionCmp(OperatorIn, field, strings.Split(value, ",")), nil
+			return NewExpressionCmp(OperatorIn, field, strings.Split(value, ",")), nil
 		}
 
-		return newExpressionCmp(OperatorEq, field, value), nil
+		return NewExpressionCmp(OperatorEq, field, value), nil
 	}
 
-	switch OperatorCmpType(operator) {
+	return ParseExpressionWithOperator(operator, field, value)
+}
+
+func ParseExpressionWithOperator(operator string, key string, value string) (ExpressionCmp, error) {
+	switch operatorCmpType(operator) {
 	case OperatorEq:
-		return newExpressionCmp(OperatorEq, field, value), nil
+		return NewExpressionCmp(OperatorEq, key, value), nil
 	case OperatorNe:
-		return newExpressionCmp(OperatorNe, field, value), nil
+		return NewExpressionCmp(OperatorNe, key, value), nil
 	case OperatorGt:
-		return newExpressionCmp(OperatorGt, field, value), nil
+		return NewExpressionCmp(OperatorGt, key, value), nil
 	case OperatorLt:
-		return newExpressionCmp(OperatorLt, field, value), nil
+		return NewExpressionCmp(OperatorLt, key, value), nil
 	case OperatorGte:
-		return newExpressionCmp(OperatorGte, field, value), nil
+		return NewExpressionCmp(OperatorGte, key, value), nil
 	case OperatorLte:
-		return newExpressionCmp(OperatorLte, field, value), nil
+		return NewExpressionCmp(OperatorLte, key, value), nil
 	case OperatorLike:
-		return newExpressionCmp(OperatorLike, field, value), nil
+		return NewExpressionCmp(OperatorLike, key, value), nil
 	case OperatorILike:
-		return newExpressionCmp(OperatorILike, field, value), nil
+		return NewExpressionCmp(OperatorILike, key, value), nil
 	case OperatorNLike:
-		return newExpressionCmp(OperatorNLike, field, value), nil
+		return NewExpressionCmp(OperatorNLike, key, value), nil
 	case OperatorNILike:
-		return newExpressionCmp(OperatorNILike, field, value), nil
+		return NewExpressionCmp(OperatorNILike, key, value), nil
 	case OperatorIn, OperatorEmpty:
 		if strings.Contains(value, ",") {
-			return newExpressionCmp(OperatorIn, field, strings.Split(value, ",")), nil
+			return NewExpressionCmp(OperatorIn, key, strings.Split(value, ",")), nil
 		}
 
-		return newExpressionCmp(OperatorIn, field, value), nil
+		return NewExpressionCmp(OperatorIn, key, value), nil
 	case OperatorNIn:
 		if strings.Contains(value, ",") {
-			return newExpressionCmp(OperatorNIn, field, strings.Split(value, ",")), nil
+			return NewExpressionCmp(OperatorNIn, key, strings.Split(value, ",")), nil
 		}
 
-		return newExpressionCmp(OperatorNIn, field, value), nil
+		return NewExpressionCmp(OperatorNIn, key, value), nil
 	case OperatorIs:
-		return newExpressionCmp(OperatorIs, field, nil), nil
+		return NewExpressionCmp(OperatorIs, key, nil), nil
 	case OperatorIsNot:
-		return newExpressionCmp(OperatorIsNot, field, nil), nil
+		return NewExpressionCmp(OperatorIsNot, key, nil), nil
+	case OperatorKV:
+		valueParts := strings.Split(value, ",")
+
+		build := strings.Builder{}
+		build.WriteString(`{`)
+		for i := range valueParts {
+			kv := strings.SplitN(valueParts[i], ":", 2)
+			if len(kv) != 2 {
+				return ExpressionCmp{}, fmt.Errorf("invalid kv format: [%s]", valueParts[i])
+			}
+
+			// Trim spaces
+			kv[0] = strings.TrimSpace(kv[0])
+			kv[1] = strings.TrimSpace(kv[1])
+
+			build.WriteString(`"`)
+			build.WriteString(kv[0])
+			build.WriteString(`":"`)
+			build.WriteString(kv[1])
+			build.WriteString(`"`)
+
+			if i < len(valueParts)-1 {
+				build.WriteString(`,`)
+			}
+		}
+
+		build.WriteString(`}`)
+
+		return NewExpressionCmp(OperatorKV, key, build.String()), nil
 	}
 
 	return ExpressionCmp{}, fmt.Errorf("unsupported operator: [%s]", operator)

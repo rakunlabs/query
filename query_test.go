@@ -28,8 +28,8 @@ func TestParseQuery(t *testing.T) {
 			want: &Query{
 				Select: []string{"id", "name"},
 				Where: []Expression{
-					newExpressionCmp(OperatorIn, "name", []string{"foo", "a/b"}),
-					newExpressionCmp(OperatorEq, "age", "1"),
+					NewExpressionCmp(OperatorIn, "name", []string{"foo", "a/b"}),
+					NewExpressionCmp(OperatorEq, "age", "1"),
 				},
 				Sort: []ExpressionSort{
 					{
@@ -52,11 +52,11 @@ func TestParseQuery(t *testing.T) {
 					ExpressionLogic{
 						Operator: OperatorOr,
 						List: []Expression{
-							newExpressionCmp(OperatorEq, "name", "foo"),
-							newExpressionCmp(OperatorEq, "nick", "bar"),
+							NewExpressionCmp(OperatorEq, "name", "foo"),
+							NewExpressionCmp(OperatorEq, "nick", "bar"),
 						},
 					},
-					newExpressionCmp(OperatorEq, "age", "1"),
+					NewExpressionCmp(OperatorEq, "age", "1"),
 				},
 				Sort: []ExpressionSort{
 					{
