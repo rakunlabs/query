@@ -4,7 +4,7 @@ type optionQuery struct {
 	DefaultOffset *uint64
 	DefaultLimit  *uint64
 
-	Value map[string]ExpressionCmp
+	Value map[string]*ExpressionCmp
 	Skip  map[string]struct{}
 }
 
@@ -25,10 +25,10 @@ func WithDefaultLimit(limit uint64) OptionQuery {
 }
 
 // WithExpressionCmp sets the expression comparison for a given key.
-func WithExpressionCmp(key string, value ExpressionCmp) OptionQuery {
+func WithExpressionCmp(key string, value *ExpressionCmp) OptionQuery {
 	return func(o *optionQuery) {
 		if o.Value == nil {
-			o.Value = make(map[string]ExpressionCmp)
+			o.Value = make(map[string]*ExpressionCmp)
 		}
 
 		o.Value[key] = value

@@ -1,3 +1,5 @@
+<img align="right" width="106" src="query.png">
+
 # Query
 
 [![License](https://img.shields.io/github/license/rakunlabs/query?color=red&style=flat-square)](https://raw.githubusercontent.com/rakunlabs/query/main/LICENSE)

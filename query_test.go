@@ -49,7 +49,7 @@ func TestParseQuery(t *testing.T) {
 			},
 			want: &Query{
 				Where: []Expression{
-					ExpressionLogic{
+					&ExpressionLogic{
 						Operator: OperatorOr,
 						List: []Expression{
 							NewExpressionCmp(OperatorEq, "name", "foo"),
@@ -65,6 +65,51 @@ func TestParseQuery(t *testing.T) {
 					},
 				},
 				Limit: ptr(10),
+			},
+			wantErr: false,
+		},
+		{
+			name: "test 3",
+			args: args{
+				query: "name=foo|bar&age=1&%28test=1&test2=2%29",
+			},
+			want: &Query{
+				Where: []Expression{
+					&ExpressionLogic{
+						Operator: OperatorOr,
+						List: []Expression{
+							NewExpressionCmp(OperatorEq, "name", "foo"),
+							NewExpressionCmp(OperatorEq, "name", "bar"),
+						},
+					},
+					NewExpressionCmp(OperatorEq, "age", "1"),
+					&ExpressionLogic{
+						Operator: OperatorAnd,
+						List: []Expression{
+							NewExpressionCmp(OperatorEq, "test", "1"),
+							NewExpressionCmp(OperatorEq, "test2", "2"),
+						},
+					},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "test 4",
+			args: args{
+				query: "name=foo|bar&age=1",
+			},
+			want: &Query{
+				Where: []Expression{
+					&ExpressionLogic{
+						Operator: OperatorOr,
+						List: []Expression{
+							NewExpressionCmp(OperatorEq, "name", "foo"),
+							NewExpressionCmp(OperatorEq, "name", "bar"),
+						},
+					},
+					NewExpressionCmp(OperatorEq, "age", "1"),
+				},
 			},
 			wantErr: false,
 		},
@@ -88,15 +133,15 @@ func TestParseQuery(t *testing.T) {
 			}
 
 			if !reflect.DeepEqual(got.Where, tt.want.Where) {
-				t.Fatalf("ParseQuery() = \n%#v\n, want \n%#v\n", got.Where, tt.want.Where)
+				t.Fatalf("ParseQuery() Where = %v, want %v", got.Where, tt.want.Where)
 			}
 
 			if !reflect.DeepEqual(got.Sort, tt.want.Sort) {
-				t.Fatalf("ParseQuery() = \n%#v\n, want \n%#v\n", got.Sort, tt.want.Sort)
+				t.Fatalf("ParseQuery() Sort = %v, want %v", got.Sort, tt.want.Sort)
 			}
 
 			if !reflect.DeepEqual(got.Select, tt.want.Select) {
-				t.Fatalf("ParseQuery() = \n%#v\n, want \n%#v\n", got.Select, tt.want.Select)
+				t.Fatalf("ParseQuery() Select = %v, want %v", got.Select, tt.want.Select)
 			}
 		})
 	}

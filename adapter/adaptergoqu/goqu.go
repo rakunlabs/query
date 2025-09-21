@@ -29,7 +29,7 @@ func Expression(q *query.Query, opts ...Option) []exp.Expression {
 			currentStack := &stack[len(stack)-1]
 			switch t.Type {
 			case query.WalkCurrent:
-				if exprCmp, ok := t.Expression.(query.ExpressionCmp); ok {
+				if exprCmp, ok := t.Expression.(*query.ExpressionCmp); ok {
 					e, err := exprCmpToGoqu(exprCmp, opt.Rename)
 					if err != nil {
 						return err
@@ -41,7 +41,7 @@ func Expression(q *query.Query, opts ...Option) []exp.Expression {
 				// add new stack
 				stack = append(stack, []goqu.Expression{})
 			case query.WalkEnd:
-				if exprLogic, ok := t.Expression.(query.ExpressionLogic); ok {
+				if exprLogic, ok := t.Expression.(*query.ExpressionLogic); ok {
 					e, err := exprLogicToGoqu(exprLogic, *currentStack)
 					if err != nil {
 						return err
@@ -141,7 +141,7 @@ func Select(q *query.Query, qq *goqu.SelectDataset, opts ...Option) *goqu.Select
 	return qq
 }
 
-func exprLogicToGoqu(e query.ExpressionLogic, stack []goqu.Expression) (goqu.Expression, error) {
+func exprLogicToGoqu(e *query.ExpressionLogic, stack []goqu.Expression) (goqu.Expression, error) {
 	switch e.Operator {
 	case query.OperatorAnd:
 		return goqu.And(stack...), nil
@@ -152,7 +152,7 @@ func exprLogicToGoqu(e query.ExpressionLogic, stack []goqu.Expression) (goqu.Exp
 	return nil, fmt.Errorf("unsupported operator: [%s]", e.Operator)
 }
 
-func exprCmpToGoqu(e query.ExpressionCmp, rename map[string]string) (goqu.Expression, error) {
+func exprCmpToGoqu(e *query.ExpressionCmp, rename map[string]string) (goqu.Expression, error) {
 	field := e.Field
 	if rename, ok := rename[field]; ok {
 		field = rename

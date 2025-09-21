@@ -41,7 +41,7 @@ func (q *Query) Walk(fn func(Token) error) error {
 		if currentStack.Position >= len(currentStack.Current) {
 			stack = stack[:len(stack)-1]
 			if len(stack) == 0 {
-				if err := fn(newToken(ExpressionLogic{Operator: OperatorAnd}, WalkEnd)); err != nil {
+				if err := fn(newToken(&ExpressionLogic{Operator: OperatorAnd}, WalkEnd)); err != nil {
 					return err
 				}
 
@@ -57,7 +57,7 @@ func (q *Query) Walk(fn func(Token) error) error {
 		}
 
 		expr := currentStack.Current[currentStack.Position]
-		if e, ok := expr.(ExpressionLogic); ok {
+		if e, ok := expr.(*ExpressionLogic); ok {
 			stack = append(stack, &stackHolder{
 				Current:  e.List,
 				Position: 0,

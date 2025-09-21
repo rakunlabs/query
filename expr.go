@@ -54,6 +54,7 @@ const (
 
 type Expression interface {
 	Expression() Expression
+	String() string
 }
 
 type ExpressionCmp struct {
@@ -66,6 +67,17 @@ func (e ExpressionCmp) Expression() Expression {
 	return e
 }
 
+func (e ExpressionCmp) String() string {
+	key := e.Field
+	if e.Operator != OperatorEq {
+		key += "[" + string(e.Operator) + "]"
+	}
+
+	val := formatValue(e.Value)
+
+	return key + "=" + val
+}
+
 type ExpressionLogic struct {
 	Operator operatorLogicType
 	List     []Expression
@@ -75,6 +87,61 @@ func (e ExpressionLogic) Expression() Expression {
 	return e
 }
 
+func (e ExpressionLogic) String() string {
+	if e.Operator == OperatorOr {
+		// Check if all are ExpressionCmp with same field
+		if len(e.List) > 0 {
+			if cmp, ok := e.List[0].(ExpressionCmp); ok {
+				field := cmp.Field
+				values := make([]string, 0, len(e.List))
+				allSame := true
+				for _, sub := range e.List {
+					if c, ok := sub.(ExpressionCmp); ok && c.Field == field && c.Operator == OperatorEq {
+						values = append(values, formatValue(c.Value))
+					} else {
+						allSame = false
+						break
+					}
+				}
+				if allSame && len(values) > 1 {
+					return field + "=(" + strings.Join(values, "|") + ")"
+				}
+			}
+		}
+	}
+	// Default
+	sep := "&"
+	if e.Operator == OperatorOr {
+		sep = "|"
+	}
+	parts := make([]string, len(e.List))
+	for i, sub := range e.List {
+		parts[i] = sub.String()
+	}
+	joined := strings.Join(parts, sep)
+	if e.Operator == OperatorOr || e.Operator == OperatorAnd {
+		joined = "(" + joined + ")"
+	}
+	return joined
+}
+
+func formatValue(v any) string {
+	if s, ok := v.(string); ok {
+		return url.QueryEscape(s)
+	}
+
+	if ss, ok := v.([]string); ok {
+		escaped := make([]string, len(ss))
+		for i, s := range ss {
+			escaped[i] = url.QueryEscape(s)
+		}
+
+		return strings.Join(escaped, ",")
+	}
+
+	return url.QueryEscape(fmt.Sprintf("%v", v))
+}
+
 type ExpressionSort struct {
 	// Field is the field name to order by.
 	Field string
@@ -82,8 +149,8 @@ type ExpressionSort struct {
 	Desc bool
 }
 
-func NewExpressionCmp(operator operatorCmpType, field string, value any) ExpressionCmp {
-	return ExpressionCmp{
+func NewExpressionCmp(operator operatorCmpType, field string, value any) *ExpressionCmp {
+	return &ExpressionCmp{
 		Operator: operator,
 		Field:    field,
 		Value:    value,
@@ -108,10 +175,10 @@ func parseFieldWithOperator(input string) (field string, op string, hasOp bool) 
 // ParseExpression parses a single expression from key-value pairs.
 //   - key -> key[eq]
 //   - eq, ne, gt, lt, gte, lte, like, ilike, nlike, nilike, in, nin, is, not, kv
-func ParseExpression(key, valueRaw string) (ExpressionCmp, error) {
+func ParseExpression(key, valueRaw string) (*ExpressionCmp, error) {
 	value, err := url.QueryUnescape(valueRaw)
 	if err != nil {
-		return ExpressionCmp{}, err
+		return nil, err
 	}
 
 	field, operator, hasOperator := parseFieldWithOperator(key)
@@ -127,7 +194,7 @@ func ParseExpression(key, valueRaw string) (ExpressionCmp, error) {
 	return ParseExpressionWithOperator(operator, field, value)
 }
 
-func ParseExpressionWithOperator(operator string, key string, value string) (ExpressionCmp, error) {
+func ParseExpressionWithOperator(operator string, key string, value string) (*ExpressionCmp, error) {
 	switch operatorCmpType(operator) {
 	case OperatorEq:
 		return NewExpressionCmp(OperatorEq, key, value), nil
@@ -173,7 +240,7 @@ func ParseExpressionWithOperator(operator string, key string, value string) (Exp
 		for i := range valueParts {
 			kv := strings.SplitN(valueParts[i], ":", 2)
 			if len(kv) != 2 {
-				return ExpressionCmp{}, fmt.Errorf("invalid kv format: [%s]", valueParts[i])
+				return nil, fmt.Errorf("invalid kv format: [%s]", valueParts[i])
 			}
 
 			// Trim spaces
@@ -196,5 +263,5 @@ func ParseExpressionWithOperator(operator string, key string, value string) (Exp
 		return NewExpressionCmp(OperatorKV, key, build.String()), nil
 	}
 
-	return ExpressionCmp{}, fmt.Errorf("unsupported operator: [%s]", operator)
+	return nil, fmt.Errorf("unsupported operator: [%s]", operator)
 }
