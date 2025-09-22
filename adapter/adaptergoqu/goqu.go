@@ -138,6 +138,10 @@ func Select(q *query.Query, qq *goqu.SelectDataset, opts ...Option) *goqu.Select
 		}
 	}
 
+	if opt.Parameterized {
+		qq = qq.Prepared(true)
+	}
+
 	return qq
 }
 

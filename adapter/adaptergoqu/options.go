@@ -6,6 +6,7 @@ type option struct {
 	Edit          func(q *query.Query) *query.Query
 	Rename        map[string]string
 	DefaultSelect []string
+	Parameterized bool
 }
 
 type Option func(*option)
@@ -25,5 +26,11 @@ func WithRename(rename map[string]string) Option {
 func WithDefaultSelect(selects ...string) Option {
 	return func(o *option) {
 		o.DefaultSelect = selects
+	}
+}
+
+func WithParameterized(parameterized bool) Option {
+	return func(o *option) {
+		o.Parameterized = parameterized
 	}
 }
