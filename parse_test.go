@@ -74,6 +74,56 @@ func TestMarshalText(t *testing.T) {
 	}
 }
 
+func TestParse(t *testing.T) {
+	tests := []struct {
+		name    string
+		value   string
+		want    *Query
+		wantErr bool
+	}{
+		{
+			name:  "test 1",
+			value: "(amount=50.12|method=CARD)|name=test",
+			want: &Query{
+				Values: map[string][]*ExpressionCmp{
+					"amount": {NewExpressionCmp(OperatorEq, "amount", "50.12")},
+					"method": {NewExpressionCmp(OperatorEq, "method", "CARD")},
+					"name":   {NewExpressionCmp(OperatorEq, "name", "test")},
+				},
+				Where: []Expression{
+					&ExpressionLogic{
+						Operator: OperatorOr,
+						List: []Expression{
+							&ExpressionLogic{
+								Operator: OperatorOr,
+								List: []Expression{
+									NewExpressionCmp(OperatorEq, "amount", "50.12"),
+									NewExpressionCmp(OperatorEq, "method", "CARD"),
+								},
+							},
+							NewExpressionCmp(OperatorEq, "name", "test"),
+						},
+					},
+				},
+			},
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := Parse(tt.value)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Parse() error = %v, wantErr %v", err, tt.wantErr)
+			}
+
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("Parse() = %#v, want %#v", got, tt.want)
+			}
+		})
+	}
+}
+
 func Test_split(t *testing.T) {
 	tests := []struct {
 		name  string

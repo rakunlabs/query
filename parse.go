@@ -31,9 +31,7 @@ func Parse(query string, opts ...OptionQuery) (*Query, error) {
 		opt(o)
 	}
 
-	result := &Query{
-		Values: make(map[string][]*ExpressionCmp),
-	}
+	result := &Query{}
 
 	var err error
 	query, err = url.QueryUnescape(query)
@@ -48,7 +46,7 @@ func Parse(query string, opts ...OptionQuery) (*Query, error) {
 			continue
 		}
 
-		if isParentheses(pair) {
+		if isParenthesesAny(pair) {
 			// Handle standalone parentheses expression
 			exprs, err := parseFilter(pair)
 			if err != nil {
@@ -144,6 +142,10 @@ func Parse(query string, opts ...OptionQuery) (*Query, error) {
 	}
 
 	for key, value := range o.Value {
+		if result.Values == nil {
+			result.Values = make(map[string][]*ExpressionCmp)
+		}
+
 		result.Values[key] = append(result.Values[key], value)
 		result.Where = append(result.Where, value)
 	}
@@ -157,6 +159,10 @@ func resultAddExpr(result *Query, expr Expression, o *optionQuery) Expression {
 	}
 
 	if cmp, ok := expr.(*ExpressionCmp); ok {
+		if result.Values == nil {
+			result.Values = make(map[string][]*ExpressionCmp)
+		}
+
 		result.Values[cmp.Field] = append(result.Values[cmp.Field], cmp)
 
 		if _, ok := o.Skip[cmp.Field]; ok {
@@ -166,7 +172,7 @@ func resultAddExpr(result *Query, expr Expression, o *optionQuery) Expression {
 		return cmp
 	}
 
-	if exprLogic, ok := expr.(ExpressionLogic); ok {
+	if exprLogic, ok := expr.(*ExpressionLogic); ok {
 		newList := make([]Expression, 0, len(exprLogic.List))
 
 		for _, e := range exprLogic.List {
@@ -364,6 +370,10 @@ func parseFilterExpr(key, value string) (Expression, error) {
 
 func isParentheses(value string) bool {
 	return strings.HasPrefix(value, "(") && strings.HasSuffix(value, ")")
+}
+
+func isParenthesesAny(value string) bool {
+	return strings.Contains(value, "(") && strings.Contains(value, ")")
 }
 
 // split with & or |
