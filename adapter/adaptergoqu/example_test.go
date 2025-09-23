@@ -23,7 +23,7 @@ func ExampleParseQuery() {
 		panic(err)
 	}
 
-	sql, params, err := adaptergoqu.Select(query, goqu.From("test")).ToSQL()
+	sql, params, err := adaptergoqu.Select(query, goqu.From("test"), adaptergoqu.WithParameterized(false)).ToSQL()
 	if err != nil {
 		panic(err)
 	}

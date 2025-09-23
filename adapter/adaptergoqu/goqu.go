@@ -73,7 +73,9 @@ func Expression(q *query.Query, opts ...Option) []exp.Expression {
 }
 
 func Select(q *query.Query, qq *goqu.SelectDataset, opts ...Option) *goqu.SelectDataset {
-	opt := &option{}
+	opt := &option{
+		Parameterized: true,
+	}
 	for _, o := range opts {
 		o(opt)
 	}

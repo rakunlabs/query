@@ -28,8 +28,9 @@ query, err := query.Parse(parsedURL.RawQuery)
 sql, params, err := adaptergoqu.Select(query, goqu.From("test")).ToSQL()
 // ...
 
-// SQL: SELECT "id", "name" FROM "test" WHERE ((("name" IN ('foo', 'bar')) OR ("nick" = 'bar')) AND ("age" < '1')) ORDER BY "age" DESC LIMIT 10 OFFSET 5
-// Params: []
+// Output:
+// SQL: SELECT "id", "name" FROM "test" WHERE ((("name" IN (?, ?)) OR ("nick" = ?)) AND ("age" < ?)) ORDER BY "age" DESC LIMIT ? OFFSET ?
+// Params: [foo bar bar 1 10 5]
 ```
 
 If some value separated by `,` it will be converted to `IN` operator.  

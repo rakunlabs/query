@@ -29,6 +29,8 @@ func WithDefaultSelect(selects ...string) Option {
 	}
 }
 
+// WithParameterized sets whether to use parameterized queries.
+//   - Default is true.
 func WithParameterized(parameterized bool) Option {
 	return func(o *option) {
 		o.Parameterized = parameterized
