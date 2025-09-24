@@ -175,12 +175,7 @@ func parseFieldWithOperator(input string) (field string, op string, hasOp bool) 
 // ParseExpression parses a single expression from key-value pairs.
 //   - key -> key[eq]
 //   - eq, ne, gt, lt, gte, lte, like, ilike, nlike, nilike, in, nin, is, not, kv
-func ParseExpression(key, valueRaw string) (*ExpressionCmp, error) {
-	value, err := url.QueryUnescape(valueRaw)
-	if err != nil {
-		return nil, err
-	}
-
+func ParseExpression(key, value string) (*ExpressionCmp, error) {
 	field, operator, hasOperator := parseFieldWithOperator(key)
 
 	if !hasOperator {
