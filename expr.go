@@ -63,7 +63,7 @@ type ExpressionCmp struct {
 	Value    any
 }
 
-func (e ExpressionCmp) Expression() Expression {
+func (e *ExpressionCmp) Expression() Expression {
 	return e
 }
 
@@ -83,7 +83,7 @@ type ExpressionLogic struct {
 	List     []Expression
 }
 
-func (e ExpressionLogic) Expression() Expression {
+func (e *ExpressionLogic) Expression() Expression {
 	return e
 }
 
@@ -91,12 +91,12 @@ func (e ExpressionLogic) String() string {
 	if e.Operator == OperatorOr {
 		// Check if all are ExpressionCmp with same field
 		if len(e.List) > 0 {
-			if cmp, ok := e.List[0].(ExpressionCmp); ok {
+			if cmp, ok := e.List[0].(*ExpressionCmp); ok {
 				field := cmp.Field
 				values := make([]string, 0, len(e.List))
 				allSame := true
 				for _, sub := range e.List {
-					if c, ok := sub.(ExpressionCmp); ok && c.Field == field && c.Operator == OperatorEq {
+					if c, ok := sub.(*ExpressionCmp); ok && c.Field == field && c.Operator == OperatorEq {
 						values = append(values, formatValue(c.Value))
 					} else {
 						allSame = false
