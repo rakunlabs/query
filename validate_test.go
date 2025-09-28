@@ -22,7 +22,7 @@ func TestQuery_Validate(t *testing.T) {
 			name: "invalid age",
 			cases: []subCase{
 				{
-					URL:     "http://example.com?age=10000&fields=name,age&sort=age,-name&offset=10&limit=20",
+					URL:     "http://example.com?age=10000&_fields=name,age&_sort=age,-name&_offset=10&_limit=20",
 					wantErr: true,
 				},
 			},
@@ -36,7 +36,7 @@ func TestQuery_Validate(t *testing.T) {
 			name: "invalid age",
 			cases: []subCase{
 				{
-					URL:     "http://example.com?age=10000,500&fields=name,age&sort=age,-name&offset=10&limit=20",
+					URL:     "http://example.com?age=10000,500&_fields=name,age&_sort=age,-name&_offset=10&_limit=20",
 					wantErr: true,
 				},
 			},
@@ -106,7 +106,7 @@ func TestQuery_Validate(t *testing.T) {
 			name: "required",
 			cases: []subCase{
 				{
-					URL:     "http://example.com?fields=name,age&sort=age,-name&offset=10&limit=20",
+					URL:     "http://example.com?_fields=name,age&_sort=age,-name&_offset=10&_limit=20",
 					wantErr: true,
 				},
 			},
@@ -120,7 +120,7 @@ func TestQuery_Validate(t *testing.T) {
 			name: "not allowed",
 			cases: []subCase{
 				{
-					URL:     "http://example.com?age=5&fields=name,age&sort=age,-name&offset=10&limit=20",
+					URL:     "http://example.com?age=5&fields=name,age&_sort=age,-name&_offset=10&_limit=20",
 					wantErr: true,
 				},
 			},
@@ -165,19 +165,19 @@ func TestQuery_Validate(t *testing.T) {
 			name: "limit min max",
 			cases: []subCase{
 				{
-					URL:     "http://example.com?limit=200",
+					URL:     "http://example.com?_limit=200",
 					wantErr: true,
 				},
 				{
-					URL:     "http://example.com?limit=100",
+					URL:     "http://example.com?_limit=100",
 					wantErr: false,
 				},
 				{
-					URL:     "http://example.com?limit=0",
+					URL:     "http://example.com?_limit=0",
 					wantErr: true,
 				},
 				{
-					URL:     "http://example.com?limit=1",
+					URL:     "http://example.com?_limit=1",
 					wantErr: false,
 				},
 			},
@@ -191,19 +191,19 @@ func TestQuery_Validate(t *testing.T) {
 			name: "offset min max",
 			cases: []subCase{
 				{
-					URL:     "http://example.com?offset=200",
+					URL:     "http://example.com?_offset=200",
 					wantErr: true,
 				},
 				{
-					URL:     "http://example.com?offset=100",
+					URL:     "http://example.com?_offset=100",
 					wantErr: false,
 				},
 				{
-					URL:     "http://example.com?offset=0",
+					URL:     "http://example.com?_offset=0",
 					wantErr: true,
 				},
 				{
-					URL:     "http://example.com?offset=1",
+					URL:     "http://example.com?_offset=1",
 					wantErr: false,
 				},
 			},
@@ -217,7 +217,7 @@ func TestQuery_Validate(t *testing.T) {
 			name: "limit not allowed",
 			cases: []subCase{
 				{
-					URL:     "http://example.com?limit=200",
+					URL:     "http://example.com?_limit=200",
 					wantErr: true,
 				},
 			},
@@ -231,7 +231,7 @@ func TestQuery_Validate(t *testing.T) {
 			name: "offset not allowed",
 			cases: []subCase{
 				{
-					URL:     "http://example.com?offset=200",
+					URL:     "http://example.com?_offset=200",
 					wantErr: true,
 				},
 			},
@@ -245,7 +245,7 @@ func TestQuery_Validate(t *testing.T) {
 			name: "sort not allowed",
 			cases: []subCase{
 				{
-					URL:     "http://example.com?sort=age,-name",
+					URL:     "http://example.com?_sort=age,-name",
 					wantErr: true,
 				},
 			},
@@ -259,11 +259,11 @@ func TestQuery_Validate(t *testing.T) {
 			name: "sort in",
 			cases: []subCase{
 				{
-					URL:     "http://example.com?sort=age,-name",
+					URL:     "http://example.com?_sort=age,-name",
 					wantErr: false,
 				},
 				{
-					URL:     "http://example.com?sort=age,-name,test",
+					URL:     "http://example.com?_sort=age,-name,test",
 					wantErr: true,
 				},
 			},
@@ -277,11 +277,11 @@ func TestQuery_Validate(t *testing.T) {
 			name: "sort not in",
 			cases: []subCase{
 				{
-					URL:     "http://example.com?sort=age,-name",
+					URL:     "http://example.com?_sort=age,-name",
 					wantErr: true,
 				},
 				{
-					URL:     "http://example.com?sort=-name,test",
+					URL:     "http://example.com?_sort=-name,test",
 					wantErr: false,
 				},
 			},

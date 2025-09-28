@@ -12,7 +12,8 @@ func (q *Query) MarshalText() ([]byte, error) {
 	values := bytes.Buffer{}
 
 	if len(q.Select) > 0 {
-		values.WriteString("fields=")
+		values.WriteString(keyFields)
+		values.WriteString("=")
 		values.WriteString(strings.Join(q.Select, ","))
 	}
 
@@ -30,7 +31,8 @@ func (q *Query) MarshalText() ([]byte, error) {
 			sortParts = append(sortParts, fmt.Sprintf("%s%s", s.Field, decs))
 		}
 
-		values.WriteString("sort=")
+		values.WriteString(keySort)
+		values.WriteString("=")
 		values.WriteString(strings.Join(sortParts, ","))
 	}
 
@@ -39,7 +41,8 @@ func (q *Query) MarshalText() ([]byte, error) {
 			values.WriteString("&")
 		}
 
-		values.WriteString("limit=")
+		values.WriteString(keyLimit)
+		values.WriteString("=")
 		values.WriteString(strconv.FormatUint(*q.Limit, 10))
 	}
 
@@ -48,7 +51,8 @@ func (q *Query) MarshalText() ([]byte, error) {
 			values.WriteString("&")
 		}
 
-		values.WriteString("offset=")
+		values.WriteString(keyOffset)
+		values.WriteString("=")
 		values.WriteString(strconv.FormatUint(*q.Offset, 10))
 	}
 

@@ -23,7 +23,7 @@ func TestParseQuery(t *testing.T) {
 		{
 			name: "test 1",
 			args: args{
-				query: "name=foo,a%2Fb&age=1&sort=-age&limit=10&offset=5&fields=id,name",
+				query: "name=foo,a%2Fb&age=1&_sort=-age&_limit=10&_offset=5&_fields=id,name",
 			},
 			want: &Query{
 				Select: []string{"id", "name"},
@@ -45,7 +45,7 @@ func TestParseQuery(t *testing.T) {
 		{
 			name: "test 2",
 			args: args{
-				query: "name=foo|nick=bar&age=1&sort=age&limit=10",
+				query: "name=foo|nick=bar&age=1&_sort=age&_limit=10",
 			},
 			want: &Query{
 				Where: []Expression{
@@ -148,13 +148,13 @@ func TestParseQuery(t *testing.T) {
 }
 
 func Test_URLQuery(t *testing.T) {
-	testURL := "http://example.com?name=foo|nick=foo&age=1&sort=age&limit=10&offset=5&fields=id,name#test"
+	testURL := "http://example.com?name=foo|nick=foo&age=1&_sort=age&_limit=10&_offset=5&_fields=id,name#test"
 	parsedURL, err := url.Parse(testURL)
 	if err != nil {
 		t.Fatalf("failed to parse URL: %v", err)
 	}
 
-	if parsedURL.RawQuery != "name=foo|nick=foo&age=1&sort=age&limit=10&offset=5&fields=id,name" {
+	if parsedURL.RawQuery != "name=foo|nick=foo&age=1&_sort=age&_limit=10&_offset=5&_fields=id,name" {
 		t.Fatalf("parsed URL query does not match expected value: %s", parsedURL.RawQuery)
 	}
 }

@@ -12,7 +12,7 @@ import (
 )
 
 func ExampleParseQuery() {
-	urlStr := "http://example.com?name=foo,bar|nick=bar&age[lt]=1&sort=-age&limit=10&offset=5&fields=id,name"
+	urlStr := "http://example.com?name=foo,bar|nick=bar&age[lt]=1&_sort=-age&_limit=10&_offset=5&_fields=id,name&_events=true"
 	parsedURL, err := url.Parse(urlStr)
 	if err != nil {
 		panic(err)
@@ -37,7 +37,7 @@ func ExampleParseQuery() {
 }
 
 func ExampleParseQuery_parameterized() {
-	urlStr := "http://example.com?name=foo,bar|nick=bar&age[lt]=1&sort=-age&limit=10&offset=5&fields=id,name"
+	urlStr := "http://example.com?name=foo,bar|nick=bar&age[lt]=1&_sort=-age&_limit=10&_offset=5&_fields=id,name"
 	parsedURL, err := url.Parse(urlStr)
 	if err != nil {
 		panic(err)
@@ -62,7 +62,7 @@ func ExampleParseQuery_parameterized() {
 }
 
 func BenchmarkParseQuery(b *testing.B) {
-	urlStr := "http://example.com?name=foo,bar|nick=bar&age[lt]=1&sort=-age&limit=10&offset=5&fields=id,name"
+	urlStr := "http://example.com?name=foo,bar|nick=bar&age[lt]=1&_sort=-age&_limit=10&_offset=5&_fields=id,name"
 
 	b.ReportAllocs()
 

@@ -4,8 +4,9 @@ type optionQuery struct {
 	DefaultOffset *uint64
 	DefaultLimit  *uint64
 
-	Value map[string]*ExpressionCmp
-	Skip  map[string]struct{}
+	Value          map[string]*ExpressionCmp
+	Skip           map[string]struct{}
+	SkipUnderscore bool
 }
 
 type OptionQuery func(*optionQuery)
@@ -45,5 +46,13 @@ func WithSkipExpressionCmp(key ...string) OptionQuery {
 		for _, k := range key {
 			o.Skip[k] = struct{}{}
 		}
+	}
+}
+
+// WithSkipUnderscore sets whether to skip keys starting with underscore.
+//   - Default is true.
+func WithSkipUnderscore(v bool) OptionQuery {
+	return func(o *optionQuery) {
+		o.SkipUnderscore = v
 	}
 }

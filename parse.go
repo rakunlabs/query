@@ -7,6 +7,13 @@ import (
 	"strings"
 )
 
+const (
+	keyFields = "_fields"
+	keySort   = "_sort"
+	keyLimit  = "_limit"
+	keyOffset = "_offset"
+)
+
 func ParseWithValidator(query string, validator *Validator, opts ...OptionQuery) (*Query, error) {
 	q, err := Parse(query, opts...)
 	if err != nil {
@@ -26,7 +33,9 @@ func ParseWithValidator(query string, validator *Validator, opts ...OptionQuery)
 
 // Parse parses a query string into a Query struct.
 func Parse(query string, opts ...OptionQuery) (*Query, error) {
-	o := &optionQuery{}
+	o := &optionQuery{
+		SkipUnderscore: true,
+	}
 	for _, opt := range opts {
 		opt(o)
 	}
@@ -83,7 +92,7 @@ func Parse(query string, opts ...OptionQuery) (*Query, error) {
 		value := kv[1]
 
 		switch key {
-		case "fields":
+		case keyFields:
 			// Handle field selection
 			if value == "" {
 				continue
@@ -94,13 +103,13 @@ func Parse(query string, opts ...OptionQuery) (*Query, error) {
 					result.Select = append(result.Select, field)
 				}
 			}
-		case "sort":
+		case keySort:
 			// Handle sorting
 			if value == "" {
 				continue
 			}
 			result.Sort = parseSort(value)
-		case "limit":
+		case keyLimit:
 			// Handle limit
 			if value == "" {
 				continue
@@ -110,7 +119,7 @@ func Parse(query string, opts ...OptionQuery) (*Query, error) {
 				return nil, fmt.Errorf("invalid limit value: %s", value)
 			}
 			result.Limit = &limit
-		case "offset":
+		case keyOffset:
 			// Handle offset
 			if value == "" {
 				continue
@@ -164,6 +173,10 @@ func resultAddExpr(result *Query, expr Expression, o *optionQuery) Expression {
 		}
 
 		result.Values[cmp.Field] = append(result.Values[cmp.Field], cmp)
+
+		if o.SkipUnderscore && strings.HasPrefix(cmp.Field, "_") {
+			return nil
+		}
 
 		if _, ok := o.Skip[cmp.Field]; ok {
 			return nil

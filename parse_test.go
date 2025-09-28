@@ -40,7 +40,7 @@ func TestMarshalText(t *testing.T) {
 		t.Fatalf("MarshalText error: %v", err)
 	}
 
-	expected := "fields=id,name&sort=age:desc&limit=10&offset=5&(name=foo|nick=bar|(test=1&test2=2))&age=1"
+	expected := "_fields=id,name&_sort=age:desc&_limit=10&_offset=5&(name=foo|nick=bar|(test=1&test2=2))&age=1"
 	if string(b) != expected {
 		t.Fatalf("MarshalText = %s, want %s", string(b), expected)
 	}

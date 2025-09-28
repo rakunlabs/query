@@ -20,7 +20,7 @@ Parse url and extract query parameters with RAW, give to `query.Parse` to conver
 Use an adapter to convert it to sql or other expressions.
 
 ```go
-urlStr := "http://example.com?name=foo,bar|nick=bar&age[lt]=1&sort=-age&limit=10&offset=5&fields=id,name"
+urlStr := "http://example.com?name=foo,bar|nick=bar&age[lt]=1&_sort=-age&_limit=10&_offset=5&_fields=id,name"
 parsedURL, err := url.Parse(urlStr)
 // ...
 query, err := query.Parse(parsedURL.RawQuery)
@@ -35,12 +35,13 @@ sql, params, err := adaptergoqu.Select(query, goqu.From("test")).ToSQL()
 
 If some value separated by `,` it will be converted to `IN` operator.  
 There are a list of `[ ]` operators that can be used in the query string:  
-`eq, ne, gt, lt, gte, lte, like, ilike, nlike, nilike, in, nin, is, not`
+`eq, ne, gt, lt, gte, lte, like, ilike, nlike, nilike, in, nin, is, not, kv`
 
-`limit` and `offset` are used to limit the number of rows returned. _0_ limit means no limit.  
-`fields` is used to select the fields to be returned, comma separated.  
-`sort` is used to sort the result set, can be prefixed with `-` to indicate descending order and comma separated to indicate multiple fields.  
-`[]` empty operator means `in` operator.
+`_limit` and `_offset` are used to limit the number of rows returned. _0_ limit means no limit.  
+`_fields` is used to select the fields to be returned, comma separated.  
+`_sort` is used to sort the result set, can be prefixed with `-` to indicate descending order and comma separated to indicate multiple fields.  
+`[]` empty operator means `in` operator.  
+Paranteses `()` can be used to group expressions, `|` is used for OR operation and `&` is used for AND operation.
 
 ### Validation
 
