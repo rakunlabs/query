@@ -40,7 +40,7 @@ func Parse(query string, opts ...OptionQuery) (*Query, error) {
 		opt(o)
 	}
 
-	result := &Query{}
+	result := New()
 
 	var err error
 	query, err = url.QueryUnescape(query)
