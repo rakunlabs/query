@@ -2,8 +2,6 @@ package query
 
 import (
 	"strconv"
-
-	"github.com/shopspring/decimal"
 )
 
 type ValueType string
@@ -16,10 +14,8 @@ const (
 
 func StringToType(s string, valueType ValueType) (any, error) {
 	switch valueType {
-	case ValueTypeString:
+	case ValueTypeString, ValueTypeNumber:
 		return s, nil
-	case ValueTypeNumber:
-		return parseNumber(s)
 	case ValueTypeBoolean:
 		return parseBoolean(s)
 	default:
@@ -29,20 +25,8 @@ func StringToType(s string, valueType ValueType) (any, error) {
 
 func StringsToType(ss []string, valueType ValueType) (any, error) {
 	switch valueType {
-	case ValueTypeString:
+	case ValueTypeString, ValueTypeNumber:
 		return ss, nil
-	case ValueTypeNumber:
-		result := make([]decimal.Decimal, 0, len(ss))
-		for _, s := range ss {
-			v, err := parseNumber(s)
-			if err != nil {
-				return nil, err
-			}
-
-			result = append(result, v)
-		}
-
-		return result, nil
 	case ValueTypeBoolean:
 		result := make([]bool, 0, len(ss))
 		for _, s := range ss {
@@ -58,10 +42,6 @@ func StringsToType(ss []string, valueType ValueType) (any, error) {
 	default:
 		return ss, nil
 	}
-}
-
-func parseNumber(s string) (decimal.Decimal, error) {
-	return decimal.NewFromString(s)
 }
 
 func parseBoolean(s string) (bool, error) {
