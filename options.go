@@ -7,6 +7,8 @@ type optionQuery struct {
 	Value          map[string]*ExpressionCmp
 	Skip           map[string]struct{}
 	SkipUnderscore bool
+
+	KeyType map[string]ValueType
 }
 
 type OptionQuery func(*optionQuery)
@@ -54,5 +56,15 @@ func WithSkipExpressionCmp(key ...string) OptionQuery {
 func WithSkipUnderscore(v bool) OptionQuery {
 	return func(o *optionQuery) {
 		o.SkipUnderscore = v
+	}
+}
+
+func WithKeyType(key string, valueType ValueType) OptionQuery {
+	return func(o *optionQuery) {
+		if o.KeyType == nil {
+			o.KeyType = make(map[string]ValueType)
+		}
+
+		o.KeyType[key] = valueType
 	}
 }

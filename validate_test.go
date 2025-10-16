@@ -228,6 +228,24 @@ func TestQuery_Validate(t *testing.T) {
 			},
 		},
 		{
+			name: "kv operator",
+			cases: []subCase{
+				{
+					URL:     "http://example.com?member[kv]=text:value",
+					wantErr: false,
+				},
+				{
+					URL:     "http://example.com?member[gt]=10",
+					wantErr: true,
+				},
+			},
+			args: args{
+				opts: []OptionValidateSet{
+					WithValue("member", WithOperator(OperatorKV)),
+				},
+			},
+		},
+		{
 			name: "offset not allowed",
 			cases: []subCase{
 				{

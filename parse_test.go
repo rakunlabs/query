@@ -24,6 +24,7 @@ func TestMarshalText(t *testing.T) {
 				},
 			},
 			NewExpressionCmp(OperatorEq, "age", "1"),
+			NewExpressionCmp(OperatorKV, "meta", `{"a":1,"b":2}`),
 		},
 		Sort: []ExpressionSort{
 			{
@@ -40,7 +41,7 @@ func TestMarshalText(t *testing.T) {
 		t.Fatalf("MarshalText error: %v", err)
 	}
 
-	expected := "_fields=id,name&_sort=age:desc&_limit=10&_offset=5&(name=foo|nick=bar|(test=1&test2=2))&age=1"
+	expected := "_fields=id,name&_sort=age:desc&_limit=10&_offset=5&(name=foo|nick=bar|(test=1&test2=2))&age=1&meta[kv]=eyJhIjoxLCJiIjoyfQ"
 	if string(b) != expected {
 		t.Fatalf("MarshalText = %s, want %s", string(b), expected)
 	}

@@ -1,6 +1,7 @@
 package query
 
 import (
+	"encoding/base64"
 	"fmt"
 	"net/url"
 	"strings"
@@ -9,7 +10,7 @@ import (
 type operatorCmpType string
 
 const (
-	// OperatorEmpty is the empty operator.
+	// OperatorEmpty is the empty operator which is equal to OperatorIn.
 	OperatorEmpty operatorCmpType = ""
 	// OperatorEq is the equality operator.
 	OperatorEq operatorCmpType = "eq"
@@ -39,7 +40,7 @@ const (
 	OperatorIs operatorCmpType = "is"
 	// OperatorIsNot is the is not null operator.
 	OperatorIsNot operatorCmpType = "not"
-	// OperatorKV is the contains operator JSONB types.
+	// OperatorKV is the contains operator JSON types.
 	OperatorKV operatorCmpType = "kv"
 )
 
@@ -73,7 +74,7 @@ func (e ExpressionCmp) String() string {
 		key += "[" + string(e.Operator) + "]"
 	}
 
-	val := formatValue(e.Value)
+	val := formatValue(e.Operator, e.Value)
 
 	return key + "=" + val
 }
@@ -97,7 +98,7 @@ func (e ExpressionLogic) String() string {
 				allSame := true
 				for _, sub := range e.List {
 					if c, ok := sub.(*ExpressionCmp); ok && c.Field == field && c.Operator == OperatorEq {
-						values = append(values, formatValue(c.Value))
+						values = append(values, formatValue(c.Operator, c.Value))
 					} else {
 						allSame = false
 						break
@@ -122,10 +123,17 @@ func (e ExpressionLogic) String() string {
 	if e.Operator == OperatorOr || e.Operator == OperatorAnd {
 		joined = "(" + joined + ")"
 	}
+
 	return joined
 }
 
-func formatValue(v any) string {
+func formatValue(operator operatorCmpType, v any) string {
+	if operator == OperatorKV {
+		vStr, _ := v.(string)
+
+		return base64.RawURLEncoding.EncodeToString([]byte(vStr))
+	}
+
 	if s, ok := v.(string); ok {
 		return url.QueryEscape(s)
 	}
@@ -149,6 +157,7 @@ type ExpressionSort struct {
 	Desc bool
 }
 
+// NewExpressionCmp creates a new ExpressionCmp.
 func NewExpressionCmp(operator operatorCmpType, field string, value any) *ExpressionCmp {
 	return &ExpressionCmp{
 		Operator: operator,
@@ -172,37 +181,85 @@ func parseFieldWithOperator(input string) (field string, op string, hasOp bool) 
 	return input, "", false
 }
 
+func getKey(input string) string {
+	if openBracket := strings.Index(input, "["); openBracket != -1 {
+		return input[:openBracket]
+	}
+
+	return input
+}
+
 // ParseExpression parses a single expression from key-value pairs.
 //   - key -> key[eq]
 //   - eq, ne, gt, lt, gte, lte, like, ilike, nlike, nilike, in, nin, is, not, kv
-func ParseExpression(key, value string) (*ExpressionCmp, error) {
+func ParseExpression(key, value string, valueType ValueType) (*ExpressionCmp, error) {
 	field, operator, hasOperator := parseFieldWithOperator(key)
 
 	if !hasOperator {
 		if strings.Contains(value, ",") {
-			return NewExpressionCmp(OperatorIn, field, strings.Split(value, ",")), nil
+			v, err := StringsToType(strings.Split(value, ","), valueType)
+			if err != nil {
+				return nil, err
+			}
+
+			return NewExpressionCmp(OperatorIn, field, v), nil
 		}
 
-		return NewExpressionCmp(OperatorEq, field, value), nil
+		v, err := StringToType(value, valueType)
+		if err != nil {
+			return nil, err
+		}
+
+		return NewExpressionCmp(OperatorEq, field, v), nil
 	}
 
-	return ParseExpressionWithOperator(operator, field, value)
+	return ParseExpressionWithOperator(operator, field, value, valueType)
 }
 
-func ParseExpressionWithOperator(operator string, key string, value string) (*ExpressionCmp, error) {
+func ParseExpressionWithOperator(operator string, key string, value string, valueType ValueType) (*ExpressionCmp, error) {
 	switch operatorCmpType(operator) {
 	case OperatorEq:
-		return NewExpressionCmp(OperatorEq, key, value), nil
+		v, err := StringToType(value, valueType)
+		if err != nil {
+			return nil, err
+		}
+
+		return NewExpressionCmp(OperatorEq, key, v), nil
 	case OperatorNe:
-		return NewExpressionCmp(OperatorNe, key, value), nil
+		v, err := StringToType(value, valueType)
+		if err != nil {
+			return nil, err
+		}
+
+		return NewExpressionCmp(OperatorNe, key, v), nil
 	case OperatorGt:
-		return NewExpressionCmp(OperatorGt, key, value), nil
+		v, err := StringToType(value, valueType)
+		if err != nil {
+			return nil, err
+		}
+
+		return NewExpressionCmp(OperatorGt, key, v), nil
 	case OperatorLt:
-		return NewExpressionCmp(OperatorLt, key, value), nil
+		v, err := StringToType(value, valueType)
+		if err != nil {
+			return nil, err
+		}
+
+		return NewExpressionCmp(OperatorLt, key, v), nil
 	case OperatorGte:
-		return NewExpressionCmp(OperatorGte, key, value), nil
+		v, err := StringToType(value, valueType)
+		if err != nil {
+			return nil, err
+		}
+
+		return NewExpressionCmp(OperatorGte, key, v), nil
 	case OperatorLte:
-		return NewExpressionCmp(OperatorLte, key, value), nil
+		v, err := StringToType(value, valueType)
+		if err != nil {
+			return nil, err
+		}
+
+		return NewExpressionCmp(OperatorLte, key, v), nil
 	case OperatorLike:
 		return NewExpressionCmp(OperatorLike, key, value), nil
 	case OperatorILike:
@@ -213,21 +270,51 @@ func ParseExpressionWithOperator(operator string, key string, value string) (*Ex
 		return NewExpressionCmp(OperatorNILike, key, value), nil
 	case OperatorIn, OperatorEmpty:
 		if strings.Contains(value, ",") {
-			return NewExpressionCmp(OperatorIn, key, strings.Split(value, ",")), nil
+			v, err := StringsToType(strings.Split(value, ","), valueType)
+			if err != nil {
+				return nil, err
+			}
+
+			return NewExpressionCmp(OperatorIn, key, v), nil
 		}
 
-		return NewExpressionCmp(OperatorIn, key, value), nil
+		v, err := StringToType(value, valueType)
+		if err != nil {
+			return nil, err
+		}
+
+		return NewExpressionCmp(OperatorIn, key, v), nil
 	case OperatorNIn:
 		if strings.Contains(value, ",") {
-			return NewExpressionCmp(OperatorNIn, key, strings.Split(value, ",")), nil
+			v, err := StringsToType(strings.Split(value, ","), valueType)
+			if err != nil {
+				return nil, err
+			}
+
+			return NewExpressionCmp(OperatorNIn, key, v), nil
 		}
 
-		return NewExpressionCmp(OperatorNIn, key, value), nil
+		v, err := StringToType(value, valueType)
+		if err != nil {
+			return nil, err
+		}
+
+		return NewExpressionCmp(OperatorNIn, key, v), nil
 	case OperatorIs:
 		return NewExpressionCmp(OperatorIs, key, nil), nil
 	case OperatorIsNot:
 		return NewExpressionCmp(OperatorIsNot, key, nil), nil
 	case OperatorKV:
+		if !strings.Contains(value, ":") {
+			// base64 URL encoded JSON
+			valueDecoded, err := base64.RawURLEncoding.DecodeString(value)
+			if err != nil {
+				return nil, fmt.Errorf("invalid base64 encoding for kv operator: %v", err)
+			}
+
+			return NewExpressionCmp(OperatorKV, key, string(valueDecoded)), nil
+		}
+
 		valueParts := strings.Split(value, ",")
 
 		build := strings.Builder{}

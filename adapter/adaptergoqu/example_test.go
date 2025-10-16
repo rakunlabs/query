@@ -12,7 +12,7 @@ import (
 )
 
 func ExampleParseQuery() {
-	urlStr := "http://example.com?name=foo,bar|nick=bar&age[lt]=1&_sort=-age&_limit=10&_offset=5&_fields=id,name&_events=true"
+	urlStr := "http://example.com?name=foo,bar|nick=bar&age[lt]=1&_sort=-age&_limit=10&_offset=5&_fields=id,name&_events=true&meta[kv]=eyJhIjoxLCJiIjoyfQ"
 	parsedURL, err := url.Parse(urlStr)
 	if err != nil {
 		panic(err)
@@ -32,7 +32,7 @@ func ExampleParseQuery() {
 	fmt.Println("SQL:", sql)
 	fmt.Println("Params:", params)
 	// Output:
-	// SQL: SELECT "id", "name" FROM "test" WHERE ((("name" IN ('foo', 'bar')) OR ("nick" = 'bar')) AND ("age" < '1')) ORDER BY "age" DESC LIMIT 10 OFFSET 5
+	// SQL: SELECT "id", "name" FROM "test" WHERE ((("name" IN ('foo', 'bar')) OR ("nick" = 'bar')) AND ("age" < '1') AND "meta" @> '{"a":1,"b":2}') ORDER BY "age" DESC LIMIT 10 OFFSET 5
 	// Params: []
 }
 
