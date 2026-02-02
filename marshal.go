@@ -2,6 +2,7 @@ package query
 
 import (
 	"bytes"
+	"encoding/base64"
 	"fmt"
 	"strconv"
 	"strings"
@@ -28,6 +29,7 @@ func (q *Query) MarshalText() ([]byte, error) {
 			if s.Desc {
 				decs = ":desc"
 			}
+
 			sortParts = append(sortParts, fmt.Sprintf("%s%s", s.Field, decs))
 		}
 
@@ -65,4 +67,16 @@ func (q *Query) MarshalText() ([]byte, error) {
 	}
 
 	return values.Bytes(), nil
+}
+
+// Base64URLEncode encodes v using base64 URL encoding without padding.
+//   - This useful for non-URL-safe strings that need to be included in URLs.
+//   - OperatorKV understands this encoding.
+func Base64URLEncode(v []byte) string {
+	return base64.RawURLEncoding.EncodeToString(v)
+}
+
+// Base64URLDecode decodes a base64 URL encoded string without padding.
+func Base64URLDecode(s string) ([]byte, error) {
+	return base64.RawURLEncoding.DecodeString(s)
 }

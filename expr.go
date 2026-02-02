@@ -1,7 +1,7 @@
 package query
 
 import (
-	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"net/url"
 	"strings"
@@ -131,7 +131,7 @@ func formatValue(operator operatorCmpType, v any) string {
 	if operator == OperatorKV {
 		vStr, _ := v.(string)
 
-		return base64.RawURLEncoding.EncodeToString([]byte(vStr))
+		return Base64URLEncode([]byte(vStr))
 	}
 
 	if s, ok := v.(string); ok {
@@ -163,6 +163,14 @@ func NewExpressionCmp(operator operatorCmpType, field string, value any) *Expres
 		Operator: operator,
 		Field:    field,
 		Value:    value,
+	}
+}
+
+// NewExpressionLogic creates a new ExpressionLogic.
+func NewExpressionLogic(operator operatorLogicType, list []Expression) *ExpressionLogic {
+	return &ExpressionLogic{
+		Operator: operator,
+		List:     list,
 	}
 }
 
@@ -305,44 +313,22 @@ func ParseExpressionWithOperator(operator string, key string, value string, valu
 	case OperatorIsNot:
 		return NewExpressionCmp(OperatorIsNot, key, nil), nil
 	case OperatorKV:
-		if !strings.Contains(value, ":") {
-			// base64 URL encoded JSON
-			valueDecoded, err := base64.RawURLEncoding.DecodeString(value)
-			if err != nil {
-				return nil, fmt.Errorf("invalid base64 encoding for kv operator: %v", err)
-			}
-
-			return NewExpressionCmp(OperatorKV, key, string(valueDecoded)), nil
+		// check it is a valid JSON string
+		if json.Valid([]byte(value)) {
+			return NewExpressionCmp(OperatorKV, key, value), nil
 		}
 
-		valueParts := strings.Split(value, ",")
-
-		build := strings.Builder{}
-		build.WriteString(`{`)
-		for i := range valueParts {
-			kv := strings.SplitN(valueParts[i], ":", 2)
-			if len(kv) != 2 {
-				return nil, fmt.Errorf("invalid kv format: [%s]", valueParts[i])
-			}
-
-			// Trim spaces
-			kv[0] = strings.TrimSpace(kv[0])
-			kv[1] = strings.TrimSpace(kv[1])
-
-			build.WriteString(`"`)
-			build.WriteString(kv[0])
-			build.WriteString(`":"`)
-			build.WriteString(kv[1])
-			build.WriteString(`"`)
-
-			if i < len(valueParts)-1 {
-				build.WriteString(`,`)
-			}
+		// check if it is base64 URL encoded
+		valueDecoded, err := Base64URLDecode(value)
+		if err != nil {
+			return nil, fmt.Errorf("invalid base64 encoding for kv operator: %w", err)
 		}
 
-		build.WriteString(`}`)
+		if !json.Valid(valueDecoded) {
+			return nil, fmt.Errorf("invalid JSON for kv operator")
+		}
 
-		return NewExpressionCmp(OperatorKV, key, build.String()), nil
+		return NewExpressionCmp(OperatorKV, key, string(valueDecoded)), nil
 	}
 
 	return nil, fmt.Errorf("unsupported operator: [%s]", operator)
