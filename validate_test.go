@@ -231,7 +231,11 @@ func TestQuery_Validate(t *testing.T) {
 			name: "kv operator",
 			cases: []subCase{
 				{
-					URL:     "http://example.com?member[kv]=text:value",
+					URL:     "http://example.com?member[kv]=eyJ0ZXh0IjoidmFsdWUifQ",
+					wantErr: false,
+				},
+				{
+					URL:     `http://example.com?member[kv]={"text":"value"}`,
 					wantErr: false,
 				},
 				{
