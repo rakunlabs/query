@@ -12,6 +12,11 @@ const (
 	keySort   = "_sort"
 	keyLimit  = "_limit"
 	keyOffset = "_offset"
+
+	keyFieldsNoPrefix = "fields"
+	keySortNoPrefix   = "sort"
+	keyLimitNoPrefix  = "limit"
+	keyOffsetNoPrefix = "offset"
 )
 
 func ParseWithValidator(query string, validator *Validator, opts ...OptionQuery) (*Query, error) {
@@ -38,6 +43,15 @@ func Parse(query string, opts ...OptionQuery) (*Query, error) {
 	}
 	for _, opt := range opts {
 		opt(o)
+	}
+
+	// Determine the effective key names based on the underscore prefix option.
+	kFields, kSort, kLimit, kOffset := keyFields, keySort, keyLimit, keyOffset
+	if o.UnderscorePrefix != nil && !*o.UnderscorePrefix {
+		kFields = keyFieldsNoPrefix
+		kSort = keySortNoPrefix
+		kLimit = keyLimitNoPrefix
+		kOffset = keyOffsetNoPrefix
 	}
 
 	result := New()
@@ -92,7 +106,7 @@ func Parse(query string, opts ...OptionQuery) (*Query, error) {
 		value := kv[1]
 
 		switch key {
-		case keyFields:
+		case kFields:
 			// Handle field selection
 			if value == "" {
 				continue
@@ -103,13 +117,13 @@ func Parse(query string, opts ...OptionQuery) (*Query, error) {
 					result.Select = append(result.Select, field)
 				}
 			}
-		case keySort:
+		case kSort:
 			// Handle sorting
 			if value == "" {
 				continue
 			}
 			result.Sort = parseSort(value)
-		case keyLimit:
+		case kLimit:
 			// Handle limit
 			if value == "" {
 				continue
@@ -119,7 +133,7 @@ func Parse(query string, opts ...OptionQuery) (*Query, error) {
 				return nil, fmt.Errorf("invalid limit value: %s", value)
 			}
 			result.Limit = &limit
-		case keyOffset:
+		case kOffset:
 			// Handle offset
 			if value == "" {
 				continue

@@ -158,3 +158,113 @@ func Test_URLQuery(t *testing.T) {
 		t.Fatalf("parsed URL query does not match expected value: %s", parsedURL.RawQuery)
 	}
 }
+
+func TestParseQuery_WithUnderscorePrefix(t *testing.T) {
+	tests := []struct {
+		name    string
+		query   string
+		opts    []OptionQuery
+		want    *Query
+		wantErr bool
+	}{
+		{
+			name:  "no underscore prefix",
+			query: "name=foo&age=1&sort=-age&limit=10&offset=5&fields=id,name",
+			opts:  []OptionQuery{WithUnderscorePrefix(false)},
+			want: &Query{
+				Select: []string{"id", "name"},
+				Where: []Expression{
+					NewExpressionCmp(OperatorEq, "name", "foo"),
+					NewExpressionCmp(OperatorEq, "age", "1"),
+				},
+				Sort: []ExpressionSort{
+					{
+						Field: "age",
+						Desc:  true,
+					},
+				},
+				Offset: ptr(5),
+				Limit:  ptr(10),
+			},
+			wantErr: false,
+		},
+		{
+			name:  "no underscore prefix - bare keys not treated as filters",
+			query: "limit=20&offset=0&sort=name&fields=id",
+			opts:  []OptionQuery{WithUnderscorePrefix(false)},
+			want: &Query{
+				Select: []string{"id"},
+				Sort: []ExpressionSort{
+					{
+						Field: "name",
+						Desc:  false,
+					},
+				},
+				Offset: ptr(0),
+				Limit:  ptr(20),
+			},
+			wantErr: false,
+		},
+		{
+			name:  "default underscore prefix - bare keys become filters",
+			query: "limit=20&_limit=10",
+			opts:  nil,
+			want: &Query{
+				Values: map[string][]*ExpressionCmp{
+					"limit": {NewExpressionCmp(OperatorEq, "limit", "20")},
+				},
+				Where: []Expression{
+					NewExpressionCmp(OperatorEq, "limit", "20"),
+				},
+				Limit: ptr(10),
+			},
+			wantErr: false,
+		},
+		{
+			name:    "no underscore prefix - invalid limit",
+			query:   "limit=abc",
+			opts:    []OptionQuery{WithUnderscorePrefix(false)},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := Parse(tt.query, tt.opts...)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("Parse() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if tt.wantErr {
+				return
+			}
+
+			if got.Limit != nil && tt.want.Limit != nil {
+				if *got.Limit != *tt.want.Limit {
+					t.Fatalf("Parse() Limit = %d, want %d", *got.Limit, *tt.want.Limit)
+				}
+			} else if (got.Limit == nil) != (tt.want.Limit == nil) {
+				t.Fatalf("Parse() Limit = %v, want %v", got.Limit, tt.want.Limit)
+			}
+
+			if got.Offset != nil && tt.want.Offset != nil {
+				if *got.Offset != *tt.want.Offset {
+					t.Fatalf("Parse() Offset = %d, want %d", *got.Offset, *tt.want.Offset)
+				}
+			} else if (got.Offset == nil) != (tt.want.Offset == nil) {
+				t.Fatalf("Parse() Offset = %v, want %v", got.Offset, tt.want.Offset)
+			}
+
+			if !reflect.DeepEqual(got.Where, tt.want.Where) {
+				t.Fatalf("Parse() Where = %v, want %v", got.Where, tt.want.Where)
+			}
+
+			if !reflect.DeepEqual(got.Sort, tt.want.Sort) {
+				t.Fatalf("Parse() Sort = %v, want %v", got.Sort, tt.want.Sort)
+			}
+
+			if !reflect.DeepEqual(got.Select, tt.want.Select) {
+				t.Fatalf("Parse() Select = %v, want %v", got.Select, tt.want.Select)
+			}
+		})
+	}
+}

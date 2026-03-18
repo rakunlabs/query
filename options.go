@@ -8,6 +8,8 @@ type optionQuery struct {
 	Skip           map[string]struct{}
 	SkipUnderscore bool
 
+	UnderscorePrefix *bool
+
 	KeyType map[string]ValueType
 }
 
@@ -56,6 +58,15 @@ func WithSkipExpressionCmp(key ...string) OptionQuery {
 func WithSkipUnderscore(v bool) OptionQuery {
 	return func(o *optionQuery) {
 		o.SkipUnderscore = v
+	}
+}
+
+// WithUnderscorePrefix sets whether the special query keys use an underscore prefix.
+//   - Default is true: _limit, _offset, _sort, _fields.
+//   - When set to false: limit, offset, sort, fields.
+func WithUnderscorePrefix(v bool) OptionQuery {
+	return func(o *optionQuery) {
+		o.UnderscorePrefix = &v
 	}
 }
 
