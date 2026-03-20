@@ -201,9 +201,20 @@ func getKey(input string) string {
 //   - key -> key[eq]
 //   - eq, ne, gt, lt, gte, lte, like, ilike, nlike, nilike, in, nin, is, not, kv
 func ParseExpression(key, value string, valueType ValueType) (*ExpressionCmp, error) {
+	return parseExpression(key, value, valueType, nil)
+}
+
+func parseExpression(key, value string, valueType ValueType, keyOperator map[string]operatorCmpType) (*ExpressionCmp, error) {
 	field, operator, hasOperator := parseFieldWithOperator(key)
 
 	if !hasOperator {
+		// Check if a per-key default operator is configured.
+		if keyOperator != nil {
+			if op, ok := keyOperator[field]; ok {
+				return ParseExpressionWithOperator(string(op), field, value, valueType)
+			}
+		}
+
 		if strings.Contains(value, ",") {
 			v, err := StringsToType(strings.Split(value, ","), valueType)
 			if err != nil {

@@ -125,6 +125,123 @@ func TestParse(t *testing.T) {
 	}
 }
 
+func TestParseWithKeyOperator(t *testing.T) {
+	tests := []struct {
+		name    string
+		value   string
+		opts    []OptionQuery
+		want    *Query
+		wantErr bool
+	}{
+		{
+			name:  "key operator like",
+			value: "name=foo",
+			opts:  []OptionQuery{WithKeyOperator("name", OperatorLike)},
+			want: &Query{
+				Values: map[string][]*ExpressionCmp{
+					"name": {NewExpressionCmp(OperatorLike, "name", "foo")},
+				},
+				Where: []Expression{
+					NewExpressionCmp(OperatorLike, "name", "foo"),
+				},
+			},
+		},
+		{
+			name:  "key operator kv with json",
+			value: `meta={"a":1}`,
+			opts:  []OptionQuery{WithKeyOperator("meta", OperatorKV)},
+			want: &Query{
+				Values: map[string][]*ExpressionCmp{
+					"meta": {NewExpressionCmp(OperatorKV, "meta", `{"a":1}`)},
+				},
+				Where: []Expression{
+					NewExpressionCmp(OperatorKV, "meta", `{"a":1}`),
+				},
+			},
+		},
+		{
+			name:  "key operator does not override explicit bracket operator",
+			value: "name[eq]=foo",
+			opts:  []OptionQuery{WithKeyOperator("name", OperatorLike)},
+			want: &Query{
+				Values: map[string][]*ExpressionCmp{
+					"name": {NewExpressionCmp(OperatorEq, "name", "foo")},
+				},
+				Where: []Expression{
+					NewExpressionCmp(OperatorEq, "name", "foo"),
+				},
+			},
+		},
+		{
+			name:  "key operator only applies to configured key",
+			value: "name=foo&age=30",
+			opts:  []OptionQuery{WithKeyOperator("name", OperatorILike)},
+			want: &Query{
+				Values: map[string][]*ExpressionCmp{
+					"name": {NewExpressionCmp(OperatorILike, "name", "foo")},
+					"age":  {NewExpressionCmp(OperatorEq, "age", "30")},
+				},
+				Where: []Expression{
+					NewExpressionCmp(OperatorILike, "name", "foo"),
+					NewExpressionCmp(OperatorEq, "age", "30"),
+				},
+			},
+		},
+		{
+			name:  "key operator lt with numeric type",
+			value: "age=30",
+			opts: []OptionQuery{
+				WithKeyOperator("age", OperatorLt),
+				WithKeyType("age", ValueTypeNumber),
+			},
+			want: func() *Query {
+				expr := NewExpressionCmp(OperatorLt, "age", "30")
+				return &Query{
+					Values: map[string][]*ExpressionCmp{
+						"age": {expr},
+					},
+					Where: []Expression{expr},
+				}
+			}(),
+		},
+		{
+			name:  "key operator in parenthesized expression",
+			value: "(name=foo|name=bar)",
+			opts:  []OptionQuery{WithKeyOperator("name", OperatorLike)},
+			want: &Query{
+				Values: map[string][]*ExpressionCmp{
+					"name": {
+						NewExpressionCmp(OperatorLike, "name", "foo"),
+						NewExpressionCmp(OperatorLike, "name", "bar"),
+					},
+				},
+				Where: []Expression{
+					&ExpressionLogic{
+						Operator: OperatorOr,
+						List: []Expression{
+							NewExpressionCmp(OperatorLike, "name", "foo"),
+							NewExpressionCmp(OperatorLike, "name", "bar"),
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := Parse(tt.value, tt.opts...)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Parse() error = %v, wantErr %v", err, tt.wantErr)
+			}
+
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("Parse() = %#v, want %#v", got, tt.want)
+			}
+		})
+	}
+}
+
 func Test_split(t *testing.T) {
 	tests := []struct {
 		name  string

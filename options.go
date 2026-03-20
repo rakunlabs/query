@@ -10,7 +10,8 @@ type optionQuery struct {
 
 	UnderscorePrefix *bool
 
-	KeyType map[string]ValueType
+	KeyType     map[string]ValueType
+	KeyOperator map[string]operatorCmpType
 }
 
 type OptionQuery func(*optionQuery)
@@ -77,5 +78,17 @@ func WithKeyType(key string, valueType ValueType) OptionQuery {
 		}
 
 		o.KeyType[key] = valueType
+	}
+}
+
+// WithKeyOperator sets the default operator for a given key when no bracket operator is specified.
+//   - For example, WithKeyOperator("name", OperatorLike) will parse "name=foo" as "name[like]=foo".
+func WithKeyOperator(key string, operator operatorCmpType) OptionQuery {
+	return func(o *optionQuery) {
+		if o.KeyOperator == nil {
+			o.KeyOperator = make(map[string]operatorCmpType)
+		}
+
+		o.KeyOperator[key] = operator
 	}
 }
