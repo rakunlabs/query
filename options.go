@@ -10,8 +10,9 @@ type optionQuery struct {
 
 	UnderscorePrefix *bool
 
-	KeyType     map[string]ValueType
-	KeyOperator map[string]operatorCmpType
+	KeyType           map[string]ValueType
+	KeyOperator       map[string]operatorCmpType
+	KeyValueTransform map[string]func(string) string
 }
 
 type OptionQuery func(*optionQuery)
@@ -78,6 +79,19 @@ func WithKeyType(key string, valueType ValueType) OptionQuery {
 		}
 
 		o.KeyType[key] = valueType
+	}
+}
+
+// WithKeyValueTransform sets a value transform function for a given key.
+// The function is applied to the raw value string before parsing, regardless of whether a bracket operator is present.
+//   - For example, WithKeyValueTransform("name", func(v string) string { return "%" + v + "%" }) will parse "name=foo" as name=%foo%.
+func WithKeyValueTransform(key string, fn func(string) string) OptionQuery {
+	return func(o *optionQuery) {
+		if o.KeyValueTransform == nil {
+			o.KeyValueTransform = make(map[string]func(string) string)
+		}
+
+		o.KeyValueTransform[key] = fn
 	}
 }
 

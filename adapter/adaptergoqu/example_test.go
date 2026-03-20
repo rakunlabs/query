@@ -127,3 +127,70 @@ func TestSQLInjection(t *testing.T) {
 		t.Error("Parameterized SQL was not generated correctly")
 	}
 }
+
+func TestJInOperatorSQL(t *testing.T) {
+	tests := []struct {
+		name    string
+		query   string
+		opts    []query.OptionQuery
+		wantSQL string
+	}{
+		{
+			name:    "jin with multiple values",
+			query:   "tags[jin]=admin,editor",
+			wantSQL: `SELECT * FROM "test" WHERE "tags" ?| array['admin','editor']`,
+		},
+		{
+			name:    "jin with single value",
+			query:   "tags[jin]=admin",
+			wantSQL: `SELECT * FROM "test" WHERE "tags" ?| array['admin']`,
+		},
+		{
+			name:    "njin with multiple values",
+			query:   "tags[njin]=admin,editor",
+			wantSQL: `SELECT * FROM "test" WHERE NOT ("tags" ?| array['admin','editor'])`,
+		},
+		{
+			name:    "jin via WithKeyOperator",
+			query:   "tags=admin,editor",
+			opts:    []query.OptionQuery{query.WithKeyOperator("tags", query.OperatorJIn)},
+			wantSQL: `SELECT * FROM "test" WHERE "tags" ?| array['admin','editor']`,
+		},
+		{
+			name:    "jin with rename",
+			query:   "tags[jin]=admin,editor",
+			wantSQL: `SELECT * FROM "test" WHERE "data"."tags" ?| array['admin','editor']`,
+		},
+		{
+			name:    "jin sql injection prevention",
+			query:   "tags[jin]=admin,'; DROP TABLE users;--",
+			wantSQL: `SELECT * FROM "test" WHERE "tags" ?| array['admin','''; DROP TABLE users;--']`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			q, err := query.Parse(tt.query, tt.opts...)
+			if err != nil {
+				t.Fatalf("Parse() error = %v", err)
+			}
+
+			var adapterOpts []adaptergoqu.Option
+			adapterOpts = append(adapterOpts, adaptergoqu.WithParameterized(false))
+			if tt.name == "jin with rename" {
+				adapterOpts = append(adapterOpts, adaptergoqu.WithRename(map[string]string{
+					"tags": "data.tags",
+				}))
+			}
+
+			sql, _, err := adaptergoqu.Select(q, goqu.From("test"), adapterOpts...).ToSQL()
+			if err != nil {
+				t.Fatalf("ToSQL() error = %v", err)
+			}
+
+			if sql != tt.wantSQL {
+				t.Errorf("SQL = %s, want %s", sql, tt.wantSQL)
+			}
+		})
+	}
+}

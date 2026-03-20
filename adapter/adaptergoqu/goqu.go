@@ -2,6 +2,7 @@ package adaptergoqu
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/doug-martin/goqu/v9"
 	"github.com/doug-martin/goqu/v9/exp"
@@ -198,7 +199,29 @@ func exprCmpToGoqu(e *query.ExpressionCmp, rename map[string]string) (goqu.Expre
 	case query.OperatorKV:
 		// For JSONB containment (@>) operator
 		return goqu.L("? @> ?", fieldI, e.Value), nil
+	case query.OperatorJIn:
+		// For JSONB array "has any" (?|) operator
+		return goqu.L("? ?| "+buildArrayLiteral(e.Value), fieldI), nil
+	case query.OperatorNJIn:
+		// For negated JSONB array "has any" (NOT ?|) operator
+		return goqu.L("NOT (? ?| "+buildArrayLiteral(e.Value)+")", fieldI), nil
 	}
 
 	return nil, fmt.Errorf("unsupported operator: [%s]", e.Operator)
+}
+
+// buildArrayLiteral constructs a SQL array literal from a value.
+// The value is expected to be []string from the jin/njin operators.
+func buildArrayLiteral(v any) string {
+	values, ok := v.([]string)
+	if !ok {
+		return "array[]"
+	}
+
+	quoted := make([]string, len(values))
+	for i, s := range values {
+		quoted[i] = "'" + strings.ReplaceAll(s, "'", "''") + "'"
+	}
+
+	return "array[" + strings.Join(quoted, ",") + "]"
 }

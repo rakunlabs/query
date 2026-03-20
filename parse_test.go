@@ -242,6 +242,229 @@ func TestParseWithKeyOperator(t *testing.T) {
 	}
 }
 
+func TestParseWithKeyValueTransform(t *testing.T) {
+	wrapPercent := func(v string) string { return "%" + v + "%" }
+
+	tests := []struct {
+		name    string
+		value   string
+		opts    []OptionQuery
+		want    *Query
+		wantErr bool
+	}{
+		{
+			name:  "value transform alone",
+			value: "name=test",
+			opts:  []OptionQuery{WithKeyValueTransform("name", wrapPercent)},
+			want: &Query{
+				Values: map[string][]*ExpressionCmp{
+					"name": {NewExpressionCmp(OperatorEq, "name", "%test%")},
+				},
+				Where: []Expression{
+					NewExpressionCmp(OperatorEq, "name", "%test%"),
+				},
+			},
+		},
+		{
+			name:  "value transform with key operator",
+			value: "name=test",
+			opts: []OptionQuery{
+				WithKeyOperator("name", OperatorLike),
+				WithKeyValueTransform("name", wrapPercent),
+			},
+			want: &Query{
+				Values: map[string][]*ExpressionCmp{
+					"name": {NewExpressionCmp(OperatorLike, "name", "%test%")},
+				},
+				Where: []Expression{
+					NewExpressionCmp(OperatorLike, "name", "%test%"),
+				},
+			},
+		},
+		{
+			name:  "value transform with explicit bracket operator",
+			value: "name[like]=test",
+			opts:  []OptionQuery{WithKeyValueTransform("name", wrapPercent)},
+			want: &Query{
+				Values: map[string][]*ExpressionCmp{
+					"name": {NewExpressionCmp(OperatorLike, "name", "%test%")},
+				},
+				Where: []Expression{
+					NewExpressionCmp(OperatorLike, "name", "%test%"),
+				},
+			},
+		},
+		{
+			name:  "value transform only affects configured key",
+			value: "name=test&age=30",
+			opts:  []OptionQuery{WithKeyValueTransform("name", wrapPercent)},
+			want: &Query{
+				Values: map[string][]*ExpressionCmp{
+					"name": {NewExpressionCmp(OperatorEq, "name", "%test%")},
+					"age":  {NewExpressionCmp(OperatorEq, "age", "30")},
+				},
+				Where: []Expression{
+					NewExpressionCmp(OperatorEq, "name", "%test%"),
+					NewExpressionCmp(OperatorEq, "age", "30"),
+				},
+			},
+		},
+		{
+			name:  "value transform in parenthesized expression",
+			value: "(name=foo|name=bar)",
+			opts: []OptionQuery{
+				WithKeyOperator("name", OperatorLike),
+				WithKeyValueTransform("name", wrapPercent),
+			},
+			want: &Query{
+				Values: map[string][]*ExpressionCmp{
+					"name": {
+						NewExpressionCmp(OperatorLike, "name", "%foo%"),
+						NewExpressionCmp(OperatorLike, "name", "%bar%"),
+					},
+				},
+				Where: []Expression{
+					&ExpressionLogic{
+						Operator: OperatorOr,
+						List: []Expression{
+							NewExpressionCmp(OperatorLike, "name", "%foo%"),
+							NewExpressionCmp(OperatorLike, "name", "%bar%"),
+						},
+					},
+				},
+			},
+		},
+		{
+			name:  "value transform with suffix function",
+			value: "key=test",
+			opts: []OptionQuery{
+				WithKeyValueTransform("key", func(v string) string { return v + "x" }),
+			},
+			want: &Query{
+				Values: map[string][]*ExpressionCmp{
+					"key": {NewExpressionCmp(OperatorEq, "key", "testx")},
+				},
+				Where: []Expression{
+					NewExpressionCmp(OperatorEq, "key", "testx"),
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := Parse(tt.value, tt.opts...)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Parse() error = %v, wantErr %v", err, tt.wantErr)
+			}
+
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("Parse() = %#v, want %#v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestParseWithJInOperator(t *testing.T) {
+	tests := []struct {
+		name    string
+		value   string
+		opts    []OptionQuery
+		want    *Query
+		wantErr bool
+	}{
+		{
+			name:  "explicit jin with multiple values",
+			value: "tags[jin]=admin,editor",
+			want: &Query{
+				Values: map[string][]*ExpressionCmp{
+					"tags": {NewExpressionCmp(OperatorJIn, "tags", []string{"admin", "editor"})},
+				},
+				Where: []Expression{
+					NewExpressionCmp(OperatorJIn, "tags", []string{"admin", "editor"}),
+				},
+			},
+		},
+		{
+			name:  "explicit jin with single value",
+			value: "tags[jin]=admin",
+			want: &Query{
+				Values: map[string][]*ExpressionCmp{
+					"tags": {NewExpressionCmp(OperatorJIn, "tags", []string{"admin"})},
+				},
+				Where: []Expression{
+					NewExpressionCmp(OperatorJIn, "tags", []string{"admin"}),
+				},
+			},
+		},
+		{
+			name:  "explicit njin with multiple values",
+			value: "tags[njin]=admin,editor",
+			want: &Query{
+				Values: map[string][]*ExpressionCmp{
+					"tags": {NewExpressionCmp(OperatorNJIn, "tags", []string{"admin", "editor"})},
+				},
+				Where: []Expression{
+					NewExpressionCmp(OperatorNJIn, "tags", []string{"admin", "editor"}),
+				},
+			},
+		},
+		{
+			name:  "jin via WithKeyOperator",
+			value: "tags=admin,editor",
+			opts:  []OptionQuery{WithKeyOperator("tags", OperatorJIn)},
+			want: &Query{
+				Values: map[string][]*ExpressionCmp{
+					"tags": {NewExpressionCmp(OperatorJIn, "tags", []string{"admin", "editor"})},
+				},
+				Where: []Expression{
+					NewExpressionCmp(OperatorJIn, "tags", []string{"admin", "editor"}),
+				},
+			},
+		},
+		{
+			name:  "njin via WithKeyOperator",
+			value: "tags=admin",
+			opts:  []OptionQuery{WithKeyOperator("tags", OperatorNJIn)},
+			want: &Query{
+				Values: map[string][]*ExpressionCmp{
+					"tags": {NewExpressionCmp(OperatorNJIn, "tags", []string{"admin"})},
+				},
+				Where: []Expression{
+					NewExpressionCmp(OperatorNJIn, "tags", []string{"admin"}),
+				},
+			},
+		},
+		{
+			name:  "jin with other filters",
+			value: "tags[jin]=admin,editor&name=foo",
+			want: &Query{
+				Values: map[string][]*ExpressionCmp{
+					"tags": {NewExpressionCmp(OperatorJIn, "tags", []string{"admin", "editor"})},
+					"name": {NewExpressionCmp(OperatorEq, "name", "foo")},
+				},
+				Where: []Expression{
+					NewExpressionCmp(OperatorJIn, "tags", []string{"admin", "editor"}),
+					NewExpressionCmp(OperatorEq, "name", "foo"),
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := Parse(tt.value, tt.opts...)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Parse() error = %v, wantErr %v", err, tt.wantErr)
+			}
+
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("Parse() = %#v, want %#v", got, tt.want)
+			}
+		})
+	}
+}
+
 func Test_split(t *testing.T) {
 	tests := []struct {
 		name  string

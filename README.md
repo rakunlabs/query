@@ -35,13 +35,80 @@ sql, params, err := adaptergoqu.Select(query, goqu.From("test")).ToSQL()
 
 If some value separated by `,` it will be converted to `IN` operator.  
 There are a list of `[ ]` operators that can be used in the query string:  
-`eq, ne, gt, lt, gte, lte, like, ilike, nlike, nilike, in, nin, is, not, kv`
+`eq, ne, gt, lt, gte, lte, like, ilike, nlike, nilike, in, nin, is, not, kv, jin, njin`
+
+| Operator | Description | Example | SQL |
+|----------|-------------|---------|-----|
+| `eq` | Equal | `name[eq]=foo` or `name=foo` | `name = 'foo'` |
+| `ne` | Not equal | `name[ne]=foo` | `name != 'foo'` |
+| `gt` | Greater than | `age[gt]=18` | `age > 18` |
+| `lt` | Less than | `age[lt]=18` | `age < 18` |
+| `gte` | Greater than or equal | `age[gte]=18` | `age >= 18` |
+| `lte` | Less than or equal | `age[lte]=18` | `age <= 18` |
+| `like` | LIKE pattern | `name[like]=%foo%` | `name LIKE '%foo%'` |
+| `ilike` | Case-insensitive LIKE | `name[ilike]=%foo%` | `name ILIKE '%foo%'` |
+| `nlike` | NOT LIKE | `name[nlike]=%foo%` | `name NOT LIKE '%foo%'` |
+| `nilike` | Case-insensitive NOT LIKE | `name[nilike]=%foo%` | `name NOT ILIKE '%foo%'` |
+| `in` | IN list | `name[in]=foo,bar` or `name=foo,bar` | `name IN ('foo', 'bar')` |
+| `nin` | NOT IN list | `name[nin]=foo,bar` | `name NOT IN ('foo', 'bar')` |
+| `is` | IS NULL | `name[is]=` | `name IS NULL` |
+| `not` | IS NOT NULL | `name[not]=` | `name IS NOT NULL` |
+| `kv` | JSONB containment (@>) | `meta[kv]=eyJhIjoxfQ` | `meta @> '{"a":1}'` |
+| `jin` | JSONB array has any (?&#124;) | `tags[jin]=admin,editor` | `tags ?&#124; array['admin','editor']` |
+| `njin` | JSONB array has none (NOT ?&#124;) | `tags[njin]=admin,editor` | `NOT (tags ?&#124; array['admin','editor'])` |
 
 `_limit` and `_offset` are used to limit the number of rows returned. _0_ limit means no limit.  
 `_fields` is used to select the fields to be returned, comma separated.  
 `_sort` is used to sort the result set, can be prefixed with `-` to indicate descending order and comma separated to indicate multiple fields.  
 `[]` empty operator means `in` operator.  
 Paranteses `()` can be used to group expressions, `|` is used for OR operation and `&` is used for AND operation.
+
+### Parse Options
+
+Options can be passed to `query.Parse` to customize parsing behavior:
+
+#### WithKeyOperator
+
+Sets the default operator for a specific key when no bracket operator is specified. This allows you to write cleaner query strings without explicit `[op]` brackets.
+
+```go
+// Without WithKeyOperator: name=foo → name[eq]=foo (default)
+// With WithKeyOperator:    name=foo → name[like]=foo
+q, err := query.Parse("name=foo", query.WithKeyOperator("name", query.OperatorLike))
+
+// Useful for JSONB array columns:
+// tags=admin,editor → tags ?| array['admin','editor']
+q, err := query.Parse("tags=admin,editor", query.WithKeyOperator("tags", query.OperatorJIn))
+```
+
+Explicit bracket operators always take priority over `WithKeyOperator`. If the query contains `name[eq]=foo`, the `eq` operator is used regardless of the `WithKeyOperator` setting.
+
+#### WithKeyValueTransform
+
+Sets a value transform function for a specific key. The function is applied to the raw value string before parsing, regardless of whether a bracket operator is present.
+
+```go
+// Wrap value with % for LIKE queries
+q, err := query.Parse("name=foo",
+    query.WithKeyOperator("name", query.OperatorLike),
+    query.WithKeyValueTransform("name", func(v string) string {
+        return "%" + v + "%"
+    }),
+)
+// Result: name[like]=%foo%
+// SQL:    name LIKE '%foo%'
+```
+
+This also works with explicit bracket operators:
+
+```go
+// name[ilike]=foo → name[ilike]=%foo%
+q, err := query.Parse("name[ilike]=foo",
+    query.WithKeyValueTransform("name", func(v string) string {
+        return "%" + v + "%"
+    }),
+)
+```
 
 ### Validation
 

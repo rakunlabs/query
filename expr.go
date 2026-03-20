@@ -42,6 +42,10 @@ const (
 	OperatorIsNot operatorCmpType = "not"
 	// OperatorKV is the contains operator JSON types.
 	OperatorKV operatorCmpType = "kv"
+	// OperatorJIn is the JSONB array "has any" operator (?|).
+	OperatorJIn operatorCmpType = "jin"
+	// OperatorNJIn is the negated JSONB array "has any" operator (NOT ?|).
+	OperatorNJIn operatorCmpType = "njin"
 )
 
 type operatorLogicType string
@@ -201,11 +205,14 @@ func getKey(input string) string {
 //   - key -> key[eq]
 //   - eq, ne, gt, lt, gte, lte, like, ilike, nlike, nilike, in, nin, is, not, kv
 func ParseExpression(key, value string, valueType ValueType) (*ExpressionCmp, error) {
-	return parseExpression(key, value, valueType, nil)
+	return parseExpression(key, value, valueType, nil, nil)
 }
 
-func parseExpression(key, value string, valueType ValueType, keyOperator map[string]operatorCmpType) (*ExpressionCmp, error) {
+func parseExpression(key, value string, valueType ValueType, keyOperator map[string]operatorCmpType, keyValueTransform map[string]func(string) string) (*ExpressionCmp, error) {
 	field, operator, hasOperator := parseFieldWithOperator(key)
+
+	// Apply value transform if configured for this field.
+	value = applyValueTransform(field, value, keyValueTransform)
 
 	if !hasOperator {
 		// Check if a per-key default operator is configured.
@@ -233,6 +240,20 @@ func parseExpression(key, value string, valueType ValueType, keyOperator map[str
 	}
 
 	return ParseExpressionWithOperator(operator, field, value, valueType)
+}
+
+// applyValueTransform applies the configured value transform function for a field.
+func applyValueTransform(field, value string, keyValueTransform map[string]func(string) string) string {
+	if keyValueTransform == nil {
+		return value
+	}
+
+	fn, ok := keyValueTransform[field]
+	if !ok {
+		return value
+	}
+
+	return fn(value)
 }
 
 func ParseExpressionWithOperator(operator string, key string, value string, valueType ValueType) (*ExpressionCmp, error) {
@@ -340,6 +361,12 @@ func ParseExpressionWithOperator(operator string, key string, value string, valu
 		}
 
 		return NewExpressionCmp(OperatorKV, key, string(valueDecoded)), nil
+	case OperatorJIn:
+		values := strings.Split(value, ",")
+		return NewExpressionCmp(OperatorJIn, key, values), nil
+	case OperatorNJIn:
+		values := strings.Split(value, ",")
+		return NewExpressionCmp(OperatorNJIn, key, values), nil
 	}
 
 	return nil, fmt.Errorf("unsupported operator: [%s]", operator)
