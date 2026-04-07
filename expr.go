@@ -7,6 +7,9 @@ import (
 	"strings"
 )
 
+// OperatorCmpType is the comparison operator type used in expressions.
+type OperatorCmpType = operatorCmpType
+
 type operatorCmpType string
 
 const (
@@ -205,24 +208,35 @@ func getKey(input string) string {
 //   - key -> key[eq]
 //   - eq, ne, gt, lt, gte, lte, like, ilike, nlike, nilike, in, nin, is, not, kv
 func ParseExpression(key, value string, valueType ValueType) (*ExpressionCmp, error) {
-	return parseExpression(key, value, valueType, nil, nil)
+	return parseExpression(key, value, valueType, nil, nil, nil)
 }
 
-func parseExpression(key, value string, valueType ValueType, keyOperator map[string]operatorCmpType, keyValueTransform map[string]func(string) string) (*ExpressionCmp, error) {
+func parseExpression(key, value string, valueType ValueType, keyOperator map[string]operatorCmpType, keyValueTransform map[string]func(string) string, commaSplit map[string]struct{}) (*ExpressionCmp, error) {
 	field, operator, hasOperator := parseFieldWithOperator(key)
 
-	// Apply value transform if configured for this field.
-	value = applyValueTransform(field, value, keyValueTransform)
+	// When comma split is enabled for this field, split first, then apply transform to each value.
+	// Otherwise, apply transform to the whole value as before.
+	_, isCommaSplitKey := commaSplit[field]
+	if isCommaSplitKey && strings.Contains(value, ",") {
+		// Do NOT apply transform here; it will be applied per-value in parseExpressionWithCommaSplit.
+	} else {
+		value = applyValueTransform(field, value, keyValueTransform)
+	}
 
 	if !hasOperator {
 		// Check if a per-key default operator is configured.
 		if keyOperator != nil {
 			if op, ok := keyOperator[field]; ok {
-				return ParseExpressionWithOperator(string(op), field, value, valueType)
+				return parseExpressionWithCommaSplit(string(op), field, value, valueType, commaSplit, keyValueTransform)
 			}
 		}
 
 		if strings.Contains(value, ",") {
+			// Check if comma split is enabled for this field.
+			if isCommaSplitKey {
+				return parseExpressionWithCommaSplit(string(OperatorEq), field, value, valueType, commaSplit, keyValueTransform)
+			}
+
 			v, err := StringsToType(strings.Split(value, ","), valueType)
 			if err != nil {
 				return nil, err
@@ -239,7 +253,37 @@ func parseExpression(key, value string, valueType ValueType, keyOperator map[str
 		return NewExpressionCmp(OperatorEq, field, v), nil
 	}
 
-	return ParseExpressionWithOperator(operator, field, value, valueType)
+	return parseExpressionWithCommaSplit(operator, field, value, valueType, commaSplit, keyValueTransform)
+}
+
+// isCommaSplitOperator returns true if the operator supports comma splitting.
+// Operators that already handle commas natively (in, nin, jin, njin) and special operators (is, not, kv) are excluded.
+func isCommaSplitOperator(op operatorCmpType) bool {
+	switch op {
+	case OperatorIn, OperatorNIn, OperatorJIn, OperatorNJIn, OperatorIs, OperatorIsNot, OperatorKV, OperatorEmpty:
+		return false
+	default:
+		return true
+	}
+}
+
+// parseExpressionWithCommaSplit wraps ParseExpressionWithOperator with comma split support.
+// If the field is in commaSplit and the value contains commas and the operator supports it,
+// the value is split, each value is transformed (if configured), and stored as []string.
+func parseExpressionWithCommaSplit(operator string, key string, value string, valueType ValueType, commaSplit map[string]struct{}, keyValueTransform map[string]func(string) string) (*ExpressionCmp, error) {
+	if commaSplit != nil {
+		if _, ok := commaSplit[key]; ok && strings.Contains(value, ",") && isCommaSplitOperator(operatorCmpType(operator)) {
+			values := strings.Split(value, ",")
+			// Apply value transform to each individual value.
+			for i, v := range values {
+				values[i] = applyValueTransform(key, v, keyValueTransform)
+			}
+
+			return NewExpressionCmp(operatorCmpType(operator), key, values), nil
+		}
+	}
+
+	return ParseExpressionWithOperator(operator, key, value, valueType)
 }
 
 // applyValueTransform applies the configured value transform function for a field.

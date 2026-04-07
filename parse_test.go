@@ -501,3 +501,207 @@ func Test_split(t *testing.T) {
 		})
 	}
 }
+
+func TestParseWithCommaSplit(t *testing.T) {
+	tests := []struct {
+		name    string
+		value   string
+		opts    []OptionQuery
+		want    *Query
+		wantErr bool
+	}{
+		{
+			name:  "ilike with comma split",
+			value: "name[ilike]=foo,bar",
+			opts:  []OptionQuery{WithCommaSplit("name")},
+			want: &Query{
+				Values: map[string][]*ExpressionCmp{
+					"name": {NewExpressionCmp(OperatorILike, "name", []string{"foo", "bar"})},
+				},
+				Where: []Expression{
+					NewExpressionCmp(OperatorILike, "name", []string{"foo", "bar"}),
+				},
+			},
+		},
+		{
+			name:  "like with comma split",
+			value: "name[like]=foo,bar",
+			opts:  []OptionQuery{WithCommaSplit("name")},
+			want: &Query{
+				Values: map[string][]*ExpressionCmp{
+					"name": {NewExpressionCmp(OperatorLike, "name", []string{"foo", "bar"})},
+				},
+				Where: []Expression{
+					NewExpressionCmp(OperatorLike, "name", []string{"foo", "bar"}),
+				},
+			},
+		},
+		{
+			name:  "nlike with comma split",
+			value: "name[nlike]=foo,bar",
+			opts:  []OptionQuery{WithCommaSplit("name")},
+			want: &Query{
+				Values: map[string][]*ExpressionCmp{
+					"name": {NewExpressionCmp(OperatorNLike, "name", []string{"foo", "bar"})},
+				},
+				Where: []Expression{
+					NewExpressionCmp(OperatorNLike, "name", []string{"foo", "bar"}),
+				},
+			},
+		},
+		{
+			name:  "nilike with comma split",
+			value: "name[nilike]=foo,bar",
+			opts:  []OptionQuery{WithCommaSplit("name")},
+			want: &Query{
+				Values: map[string][]*ExpressionCmp{
+					"name": {NewExpressionCmp(OperatorNILike, "name", []string{"foo", "bar"})},
+				},
+				Where: []Expression{
+					NewExpressionCmp(OperatorNILike, "name", []string{"foo", "bar"}),
+				},
+			},
+		},
+		{
+			name:  "eq with comma split",
+			value: "name=foo,bar",
+			opts:  []OptionQuery{WithCommaSplit("name")},
+			want: &Query{
+				Values: map[string][]*ExpressionCmp{
+					"name": {NewExpressionCmp(OperatorEq, "name", []string{"foo", "bar"})},
+				},
+				Where: []Expression{
+					NewExpressionCmp(OperatorEq, "name", []string{"foo", "bar"}),
+				},
+			},
+		},
+		{
+			name:  "ne with comma split",
+			value: "name[ne]=foo,bar",
+			opts:  []OptionQuery{WithCommaSplit("name")},
+			want: &Query{
+				Values: map[string][]*ExpressionCmp{
+					"name": {NewExpressionCmp(OperatorNe, "name", []string{"foo", "bar"})},
+				},
+				Where: []Expression{
+					NewExpressionCmp(OperatorNe, "name", []string{"foo", "bar"}),
+				},
+			},
+		},
+		{
+			name:  "comma split does not affect non-configured key",
+			value: "name[ilike]=foo,bar&age=1,2",
+			opts:  []OptionQuery{WithCommaSplit("name")},
+			want: &Query{
+				Values: map[string][]*ExpressionCmp{
+					"name": {NewExpressionCmp(OperatorILike, "name", []string{"foo", "bar"})},
+					"age":  {NewExpressionCmp(OperatorIn, "age", []string{"1", "2"})},
+				},
+				Where: []Expression{
+					NewExpressionCmp(OperatorILike, "name", []string{"foo", "bar"}),
+					NewExpressionCmp(OperatorIn, "age", []string{"1", "2"}),
+				},
+			},
+		},
+		{
+			name:  "comma split with single value stays string",
+			value: "name[ilike]=foo",
+			opts:  []OptionQuery{WithCommaSplit("name")},
+			want: &Query{
+				Values: map[string][]*ExpressionCmp{
+					"name": {NewExpressionCmp(OperatorILike, "name", "foo")},
+				},
+				Where: []Expression{
+					NewExpressionCmp(OperatorILike, "name", "foo"),
+				},
+			},
+		},
+		{
+			name:  "comma split does not affect in operator",
+			value: "name[in]=foo,bar",
+			opts:  []OptionQuery{WithCommaSplit("name")},
+			want: &Query{
+				Values: map[string][]*ExpressionCmp{
+					"name": {NewExpressionCmp(OperatorIn, "name", []string{"foo", "bar"})},
+				},
+				Where: []Expression{
+					NewExpressionCmp(OperatorIn, "name", []string{"foo", "bar"}),
+				},
+			},
+		},
+		{
+			name:  "comma split does not affect jin operator",
+			value: "tags[jin]=admin,editor",
+			opts:  []OptionQuery{WithCommaSplit("tags")},
+			want: &Query{
+				Values: map[string][]*ExpressionCmp{
+					"tags": {NewExpressionCmp(OperatorJIn, "tags", []string{"admin", "editor"})},
+				},
+				Where: []Expression{
+					NewExpressionCmp(OperatorJIn, "tags", []string{"admin", "editor"}),
+				},
+			},
+		},
+		{
+			name:  "comma split with key operator ilike",
+			value: "name=foo,bar",
+			opts: []OptionQuery{
+				WithKeyOperator("name", OperatorILike),
+				WithCommaSplit("name"),
+			},
+			want: &Query{
+				Values: map[string][]*ExpressionCmp{
+					"name": {NewExpressionCmp(OperatorILike, "name", []string{"foo", "bar"})},
+				},
+				Where: []Expression{
+					NewExpressionCmp(OperatorILike, "name", []string{"foo", "bar"}),
+				},
+			},
+		},
+		{
+			name:  "comma split with key operator and value transform",
+			value: "name=foo,bar",
+			opts: []OptionQuery{
+				WithKeyOperator("name", OperatorILike),
+				WithKeyValueTransform("name", func(v string) string { return "%" + v + "%" }),
+				WithCommaSplit("name"),
+			},
+			want: &Query{
+				Values: map[string][]*ExpressionCmp{
+					"name": {NewExpressionCmp(OperatorILike, "name", []string{"%foo%", "%bar%"})},
+				},
+				Where: []Expression{
+					NewExpressionCmp(OperatorILike, "name", []string{"%foo%", "%bar%"}),
+				},
+			},
+		},
+		{
+			name:  "comma split with multiple configured keys",
+			value: "name[ilike]=foo,bar&title[like]=baz,qux",
+			opts:  []OptionQuery{WithCommaSplit("name", "title")},
+			want: &Query{
+				Values: map[string][]*ExpressionCmp{
+					"name":  {NewExpressionCmp(OperatorILike, "name", []string{"foo", "bar"})},
+					"title": {NewExpressionCmp(OperatorLike, "title", []string{"baz", "qux"})},
+				},
+				Where: []Expression{
+					NewExpressionCmp(OperatorILike, "name", []string{"foo", "bar"}),
+					NewExpressionCmp(OperatorLike, "title", []string{"baz", "qux"}),
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := Parse(tt.value, tt.opts...)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Parse() error = %v, wantErr %v", err, tt.wantErr)
+			}
+
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("Parse() = %#v, want %#v", got, tt.want)
+			}
+		})
+	}
+}

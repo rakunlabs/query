@@ -71,7 +71,7 @@ func Parse(query string, opts ...OptionQuery) (*Query, error) {
 
 		if isParenthesesAny(pair) {
 			// Handle standalone parentheses expression
-			exprs, err := parseFilter(pair, o.KeyType, o.KeyOperator, o.KeyValueTransform)
+			exprs, err := parseFilter(pair, o.KeyType, o.KeyOperator, o.KeyValueTransform, o.CommaSplit)
 			if err != nil {
 				return nil, err
 			}
@@ -145,7 +145,7 @@ func Parse(query string, opts ...OptionQuery) (*Query, error) {
 			result.Offset = &offset
 		default:
 			// Handle filtering
-			expr, err := parseFilterExpr(key, value, o.KeyType, o.KeyOperator, o.KeyValueTransform)
+			expr, err := parseFilterExpr(key, value, o.KeyType, o.KeyOperator, o.KeyValueTransform, o.CommaSplit)
 			if err != nil {
 				return nil, err
 			}
@@ -272,7 +272,7 @@ func parseSort(value string) []ExpressionSort {
 	return orderedExpressions
 }
 
-func parseFilter(value string, keyType map[string]ValueType, keyOperator map[string]operatorCmpType, keyValueTransform map[string]func(string) string) ([]Expression, error) {
+func parseFilter(value string, keyType map[string]ValueType, keyOperator map[string]operatorCmpType, keyValueTransform map[string]func(string) string, commaSplit map[string]struct{}) ([]Expression, error) {
 	if isParentheses(value) {
 		// Strip surrounding parentheses
 		value = value[1 : len(value)-1]
@@ -289,7 +289,7 @@ func parseFilter(value string, keyType map[string]ValueType, keyOperator map[str
 
 		if isParentheses(part) {
 			// Nested parentheses
-			nestedExpr, err := parseFilter(part, keyType, keyOperator, keyValueTransform)
+			nestedExpr, err := parseFilter(part, keyType, keyOperator, keyValueTransform, commaSplit)
 			if err != nil {
 				return nil, err
 			}
@@ -304,7 +304,7 @@ func parseFilter(value string, keyType map[string]ValueType, keyOperator map[str
 		if parts := split(part, '|'); len(parts) > 1 {
 			exsInternal := make([]Expression, 0, len(parts))
 			for _, p := range parts {
-				nestedExpr, err := parseFilter(p, keyType, keyOperator, keyValueTransform)
+				nestedExpr, err := parseFilter(p, keyType, keyOperator, keyValueTransform, commaSplit)
 				if err != nil {
 					return nil, err
 				}
@@ -335,7 +335,7 @@ func parseFilter(value string, keyType map[string]ValueType, keyOperator map[str
 			kv = append(kv, "")
 		}
 
-		exp, err := parseFilterExpr(kv[0], kv[1], keyType, keyOperator, keyValueTransform)
+		exp, err := parseFilterExpr(kv[0], kv[1], keyType, keyOperator, keyValueTransform, commaSplit)
 		if err != nil {
 			return nil, err
 		}
@@ -347,14 +347,14 @@ func parseFilter(value string, keyType map[string]ValueType, keyOperator map[str
 }
 
 // parseFilterExpr parses filter expressions from key-value pairs.
-func parseFilterExpr(key, value string, keyType map[string]ValueType, keyOperator map[string]operatorCmpType, keyValueTransform map[string]func(string) string) (Expression, error) {
+func parseFilterExpr(key, value string, keyType map[string]ValueType, keyOperator map[string]operatorCmpType, keyValueTransform map[string]func(string) string, commaSplit map[string]struct{}) (Expression, error) {
 	switch {
 	case strings.Contains(value, "|"):
 		// Handle OR conditions
 		parts := strings.Split(value, "|")
 		exs := make([]Expression, 0, len(parts))
 
-		exp, err := parseExpression(key, parts[0], keyType[getKey(key)], keyOperator, keyValueTransform)
+		exp, err := parseExpression(key, parts[0], keyType[getKey(key)], keyOperator, keyValueTransform, commaSplit)
 		if err != nil {
 			return nil, err
 		}
@@ -369,7 +369,7 @@ func parseFilterExpr(key, value string, keyType map[string]ValueType, keyOperato
 					kv = append(kv, "")
 				}
 
-				exp, err := parseExpression(kv[0], kv[1], keyType[getKey(kv[0])], keyOperator, keyValueTransform)
+				exp, err := parseExpression(kv[0], kv[1], keyType[getKey(kv[0])], keyOperator, keyValueTransform, commaSplit)
 				if err != nil {
 					return nil, err
 				}
@@ -377,7 +377,7 @@ func parseFilterExpr(key, value string, keyType map[string]ValueType, keyOperato
 				exs = append(exs, exp)
 			} else {
 				// Same field
-				exp, err := parseExpression(key, part, keyType[getKey(key)], keyOperator, keyValueTransform)
+				exp, err := parseExpression(key, part, keyType[getKey(key)], keyOperator, keyValueTransform, commaSplit)
 				if err != nil {
 					return nil, err
 				}
@@ -391,7 +391,7 @@ func parseFilterExpr(key, value string, keyType map[string]ValueType, keyOperato
 			List:     exs,
 		}, nil
 	default:
-		return parseExpression(key, value, keyType[getKey(key)], keyOperator, keyValueTransform)
+		return parseExpression(key, value, keyType[getKey(key)], keyOperator, keyValueTransform, commaSplit)
 	}
 }
 

@@ -13,6 +13,7 @@ type optionQuery struct {
 	KeyType           map[string]ValueType
 	KeyOperator       map[string]operatorCmpType
 	KeyValueTransform map[string]func(string) string
+	CommaSplit        map[string]struct{}
 }
 
 type OptionQuery func(*optionQuery)
@@ -104,5 +105,28 @@ func WithKeyOperator(key string, operator operatorCmpType) OptionQuery {
 		}
 
 		o.KeyOperator[key] = operator
+	}
+}
+
+// WithCommaSplit enables comma-separated value splitting for the given keys.
+// When enabled, values containing commas are split and combined with OR (for positive operators)
+// or AND (for negated operators like ne, nlike, nilike).
+//
+// This applies to all operators except in, nin, jin, njin (which already handle commas natively),
+// and is, not, kv (which are single-value or special-format operators).
+//
+//   - For example, WithCommaSplit("name") will parse "name[ilike]=%foo%,%bar%" as
+//     (name ILIKE '%foo%' OR name ILIKE '%bar%').
+//   - For negated operators: "name[nlike]=%foo%,%bar%" becomes
+//     (name NOT LIKE '%foo%' AND name NOT LIKE '%bar%').
+func WithCommaSplit(keys ...string) OptionQuery {
+	return func(o *optionQuery) {
+		if o.CommaSplit == nil {
+			o.CommaSplit = make(map[string]struct{})
+		}
+
+		for _, key := range keys {
+			o.CommaSplit[key] = struct{}{}
+		}
 	}
 }

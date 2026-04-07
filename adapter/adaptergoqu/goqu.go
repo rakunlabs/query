@@ -167,6 +167,22 @@ func exprCmpToGoqu(e *query.ExpressionCmp, rename map[string]string) (goqu.Expre
 
 	fieldI := goqu.I(field)
 
+	// Handle comma-split []string values for operators that support it.
+	if values, ok := e.Value.([]string); ok && len(values) > 1 {
+		if fn, logicOp, supported := commaSplitGoquFn(e.Operator, fieldI); supported {
+			exprs := make([]goqu.Expression, len(values))
+			for i, v := range values {
+				exprs[i] = fn(v)
+			}
+
+			if logicOp == "and" {
+				return goqu.And(exprs...), nil
+			}
+
+			return goqu.Or(exprs...), nil
+		}
+	}
+
 	switch e.Operator {
 	case query.OperatorEq:
 		return fieldI.Eq(e.Value), nil
@@ -208,6 +224,37 @@ func exprCmpToGoqu(e *query.ExpressionCmp, rename map[string]string) (goqu.Expre
 	}
 
 	return nil, fmt.Errorf("unsupported operator: [%s]", e.Operator)
+}
+
+// commaSplitGoquFn returns a function that creates a goqu expression for a single value,
+// the logic operator to combine multiple expressions ("or" or "and"),
+// and whether the operator supports comma splitting.
+// Negated operators (ne, nlike, nilike) use AND; positive operators use OR.
+func commaSplitGoquFn(op query.OperatorCmpType, fieldI exp.IdentifierExpression) (func(string) goqu.Expression, string, bool) {
+	switch op {
+	case query.OperatorEq:
+		return func(v string) goqu.Expression { return fieldI.Eq(v) }, "or", true
+	case query.OperatorNe:
+		return func(v string) goqu.Expression { return fieldI.Neq(v) }, "and", true
+	case query.OperatorGt:
+		return func(v string) goqu.Expression { return fieldI.Gt(v) }, "or", true
+	case query.OperatorLt:
+		return func(v string) goqu.Expression { return fieldI.Lt(v) }, "or", true
+	case query.OperatorGte:
+		return func(v string) goqu.Expression { return fieldI.Gte(v) }, "or", true
+	case query.OperatorLte:
+		return func(v string) goqu.Expression { return fieldI.Lte(v) }, "or", true
+	case query.OperatorLike:
+		return func(v string) goqu.Expression { return fieldI.Like(v) }, "or", true
+	case query.OperatorILike:
+		return func(v string) goqu.Expression { return fieldI.ILike(v) }, "or", true
+	case query.OperatorNLike:
+		return func(v string) goqu.Expression { return fieldI.NotLike(v) }, "and", true
+	case query.OperatorNILike:
+		return func(v string) goqu.Expression { return fieldI.NotILike(v) }, "and", true
+	default:
+		return nil, "", false
+	}
 }
 
 // buildArrayLiteral constructs a SQL array literal from a value.
