@@ -195,6 +195,116 @@ func TestJInOperatorSQL(t *testing.T) {
 	}
 }
 
+func TestWithKeySQL(t *testing.T) {
+	wrapPercent := func(v string) string { return "%" + v + "%" }
+
+	tests := []struct {
+		name    string
+		query   string
+		opts    []query.OptionQuery
+		wantSQL string
+	}{
+		{
+			name:  "WithKey operator and transform",
+			query: "title=hello",
+			opts: []query.OptionQuery{
+				query.WithKey("title",
+					query.KeyOperator(query.OperatorILike),
+					query.KeyValueTransform(wrapPercent),
+				),
+			},
+			wantSQL: `SELECT * FROM "test" WHERE ("title" ILIKE '%hello%')`,
+		},
+		{
+			name:  "WithKey all three options",
+			query: "name=foo,bar",
+			opts: []query.OptionQuery{
+				query.WithKey("name",
+					query.KeyOperator(query.OperatorILike),
+					query.KeyValueTransform(wrapPercent),
+					query.KeyCommaSplit(),
+				),
+			},
+			wantSQL: `SELECT * FROM "test" WHERE (("name" ILIKE '%foo%') OR ("name" ILIKE '%bar%'))`,
+		},
+		{
+			name:  "WithKey jin operator",
+			query: "roles=admin,editor",
+			opts: []query.OptionQuery{
+				query.WithKey("roles", query.KeyOperator(query.OperatorJIn)),
+			},
+			wantSQL: `SELECT * FROM "test" WHERE "roles" ?| array['admin','editor']`,
+		},
+		{
+			name:  "WithKey multiple keys",
+			query: "title=hello&description=world",
+			opts: []query.OptionQuery{
+				query.WithKey("title",
+					query.KeyOperator(query.OperatorILike),
+					query.KeyValueTransform(wrapPercent),
+				),
+				query.WithKey("description",
+					query.KeyOperator(query.OperatorILike),
+					query.KeyValueTransform(wrapPercent),
+				),
+			},
+			wantSQL: `SELECT * FROM "test" WHERE (("title" ILIKE '%hello%') AND ("description" ILIKE '%world%'))`,
+		},
+		{
+			name:  "WithKey equivalent to standalone options",
+			query: "name=foo,bar",
+			opts: []query.OptionQuery{
+				query.WithKey("name",
+					query.KeyOperator(query.OperatorILike),
+					query.KeyValueTransform(wrapPercent),
+					query.KeyCommaSplit(),
+				),
+			},
+			wantSQL: `SELECT * FROM "test" WHERE (("name" ILIKE '%foo%') OR ("name" ILIKE '%bar%'))`,
+		},
+		{
+			name:  "WithKey mixed with standalone",
+			query: "title=hello&age[gt]=18",
+			opts: []query.OptionQuery{
+				query.WithKey("title",
+					query.KeyOperator(query.OperatorILike),
+					query.KeyValueTransform(wrapPercent),
+				),
+			},
+			wantSQL: `SELECT * FROM "test" WHERE (("title" ILIKE '%hello%') AND ("age" > '18'))`,
+		},
+		{
+			name:  "WithKey comma split with value transform lower",
+			query: "status=Active,PENDING",
+			opts: []query.OptionQuery{
+				query.WithKey("status",
+					query.KeyValueTransform(strings.ToLower),
+					query.KeyCommaSplit(),
+				),
+			},
+			wantSQL: `SELECT * FROM "test" WHERE (("status" = 'active') OR ("status" = 'pending'))`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			q, err := query.Parse(tt.query, tt.opts...)
+			if err != nil {
+				t.Fatalf("Parse() error = %v", err)
+			}
+
+			sql, _, err := adaptergoqu.Select(q, goqu.From("test"), adaptergoqu.WithParameterized(false)).ToSQL()
+			if err != nil {
+				t.Fatalf("ToSQL() error = %v", err)
+			}
+
+			if sql != tt.wantSQL {
+				t.Errorf("SQL = %s, want %s", sql, tt.wantSQL)
+			}
+		})
+	}
+}
+
 func TestCommaSplitOperatorSQL(t *testing.T) {
 	tests := []struct {
 		name    string

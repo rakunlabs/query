@@ -56,10 +56,13 @@ func Parse(query string, opts ...OptionQuery) (*Query, error) {
 
 	result := New()
 
-	var err error
-	query, err = url.QueryUnescape(query)
-	if err != nil {
-		return nil, err
+	// Fast path: skip unescape when the query contains no percent-encoded or plus-encoded chars.
+	if strings.ContainsAny(query, "%+") {
+		var err error
+		query, err = url.QueryUnescape(query)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	// Split the query by & to get key-value pairs
@@ -97,13 +100,7 @@ func Parse(query string, opts ...OptionQuery) (*Query, error) {
 			continue
 		}
 
-		kv := strings.SplitN(pair, "=", 2)
-		if len(kv) != 2 {
-			kv = append(kv, "")
-		}
-
-		key := kv[0]
-		value := kv[1]
+		key, value, _ := strings.Cut(pair, "=")
 
 		switch key {
 		case kFields:
@@ -200,23 +197,27 @@ func resultAddExpr(result *Query, expr Expression, o *optionQuery) Expression {
 	}
 
 	if exprLogic, ok := expr.(*ExpressionLogic); ok {
-		newList := make([]Expression, 0, len(exprLogic.List))
-
+		// Filter in-place: reuse the existing slice to avoid allocating a new one.
+		n := 0
 		for _, e := range exprLogic.List {
 			processed := resultAddExpr(result, e, o)
 			if processed != nil {
-				newList = append(newList, processed)
+				exprLogic.List[n] = processed
+				n++
 			}
 		}
 
-		if len(newList) == 0 {
+		// Clear trailing references to allow GC of removed expressions.
+		for i := n; i < len(exprLogic.List); i++ {
+			exprLogic.List[i] = nil
+		}
+		exprLogic.List = exprLogic.List[:n]
+
+		if n == 0 {
 			return nil
 		}
 
-		return &ExpressionLogic{
-			Operator: exprLogic.Operator,
-			List:     newList,
-		}
+		return exprLogic
 	}
 
 	// Other expression types
@@ -229,39 +230,35 @@ func parseSort(value string) []ExpressionSort {
 		return nil
 	}
 
-	fields := strings.Split(value, ",")
-	orderedExpressions := make([]ExpressionSort, 0, len(fields))
+	// Count commas to pre-size the result.
+	n := 1 + strings.Count(value, ",")
+	orderedExpressions := make([]ExpressionSort, 0, n)
 
-	for _, field := range fields {
+	for field := range strings.SplitSeq(value, ",") {
 		switch {
 		case field == "":
 			// Skip empty fields
-		case strings.HasPrefix(field, "+"):
-			// Ascending order
+		case field[0] == '+':
 			orderedExpressions = append(orderedExpressions, ExpressionSort{
 				Field: field[1:],
 				Desc:  false,
 			})
-		case strings.HasPrefix(field, "-"):
-			// Descending order
+		case field[0] == '-':
 			orderedExpressions = append(orderedExpressions, ExpressionSort{
 				Field: field[1:],
 				Desc:  true,
 			})
 		case strings.HasSuffix(field, ":asc"):
-			// Ascending order
 			orderedExpressions = append(orderedExpressions, ExpressionSort{
 				Field: field[:len(field)-4],
 				Desc:  false,
 			})
 		case strings.HasSuffix(field, ":desc"):
-			// Descending order
 			orderedExpressions = append(orderedExpressions, ExpressionSort{
 				Field: field[:len(field)-5],
 				Desc:  true,
 			})
 		default:
-			// Ascending order
 			orderedExpressions = append(orderedExpressions, ExpressionSort{
 				Field: field,
 				Desc:  false,
@@ -330,12 +327,9 @@ func parseFilter(value string, keyType map[string]ValueType, keyOperator map[str
 			continue
 		}
 
-		kv := strings.SplitN(part, "=", 2)
-		if len(kv) != 2 {
-			kv = append(kv, "")
-		}
+		partKey, partVal, _ := strings.Cut(part, "=")
 
-		exp, err := parseFilterExpr(kv[0], kv[1], keyType, keyOperator, keyValueTransform, commaSplit)
+		exp, err := parseFilterExpr(partKey, partVal, keyType, keyOperator, keyValueTransform, commaSplit)
 		if err != nil {
 			return nil, err
 		}
@@ -362,14 +356,9 @@ func parseFilterExpr(key, value string, keyType map[string]ValueType, keyOperato
 		exs = append(exs, exp)
 
 		for _, part := range parts[1:] {
-			if strings.Contains(part, "=") {
+			if pKey, pVal, ok := strings.Cut(part, "="); ok {
 				// Different field
-				kv := strings.SplitN(part, "=", 2)
-				if len(kv) != 2 {
-					kv = append(kv, "")
-				}
-
-				exp, err := parseExpression(kv[0], kv[1], keyType[getKey(kv[0])], keyOperator, keyValueTransform, commaSplit)
+				exp, err := parseExpression(pKey, pVal, keyType[getKey(pKey)], keyOperator, keyValueTransform, commaSplit)
 				if err != nil {
 					return nil, err
 				}
@@ -403,37 +392,47 @@ func isParenthesesAny(value string) bool {
 	return strings.Contains(value, "(") && strings.Contains(value, ")")
 }
 
-// split with & or |
+// split with & or | respecting parentheses depth.
+// Uses index-based slicing to avoid allocating a strings.Builder per segment.
 func split(value string, delim byte) []string {
-	var result []string
-	var current strings.Builder
+	// Count delimiters at depth 0 to pre-size the result slice.
+	n := 1
 	depth := 0
-
 	for i := 0; i < len(value); i++ {
-		v := value[i]
-		switch v {
+		switch value[i] {
 		case '(':
 			depth++
-			current.WriteByte(v)
 		case ')':
 			depth--
-			current.WriteByte(v)
 		case delim:
 			if depth == 0 {
-				if current.Len() > 0 {
-					result = append(result, current.String())
-					current.Reset()
-				}
-			} else {
-				current.WriteByte(v)
+				n++
 			}
-		default:
-			current.WriteByte(v)
 		}
 	}
 
-	if current.Len() > 0 {
-		result = append(result, current.String())
+	result := make([]string, 0, n)
+	start := 0
+	depth = 0
+
+	for i := 0; i < len(value); i++ {
+		switch value[i] {
+		case '(':
+			depth++
+		case ')':
+			depth--
+		case delim:
+			if depth == 0 {
+				if i > start {
+					result = append(result, value[start:i])
+				}
+				start = i + 1
+			}
+		}
+	}
+
+	if start < len(value) {
+		result = append(result, value[start:])
 	}
 
 	return result

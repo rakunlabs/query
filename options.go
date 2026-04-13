@@ -130,3 +130,60 @@ func WithCommaSplit(keys ...string) OptionQuery {
 		}
 	}
 }
+
+// KeyOption is a functional option scoped to a single key, used with WithKey.
+type KeyOption func(key string, o *optionQuery)
+
+// KeyOperator sets the default operator for the key when no bracket operator is specified.
+//   - For example, KeyOperator(OperatorILike) will parse "name=foo" as "name[ilike]=foo".
+func KeyOperator(op operatorCmpType) KeyOption {
+	return func(key string, o *optionQuery) {
+		if o.KeyOperator == nil {
+			o.KeyOperator = make(map[string]operatorCmpType)
+		}
+
+		o.KeyOperator[key] = op
+	}
+}
+
+// KeyValueTransform sets a value transform function for the key.
+// The function is applied to the raw value string before parsing.
+//   - For example, KeyValueTransform(func(v string) string { return "%" + v + "%" }) will parse "name=foo" as name=%foo%.
+func KeyValueTransform(fn func(string) string) KeyOption {
+	return func(key string, o *optionQuery) {
+		if o.KeyValueTransform == nil {
+			o.KeyValueTransform = make(map[string]func(string) string)
+		}
+
+		o.KeyValueTransform[key] = fn
+	}
+}
+
+// KeyCommaSplit enables comma-separated value splitting for the key.
+// When enabled, values containing commas are split and combined with OR (for positive operators)
+// or AND (for negated operators like ne, nlike, nilike).
+func KeyCommaSplit() KeyOption {
+	return func(key string, o *optionQuery) {
+		if o.CommaSplit == nil {
+			o.CommaSplit = make(map[string]struct{})
+		}
+
+		o.CommaSplit[key] = struct{}{}
+	}
+}
+
+// WithKey groups multiple key-scoped options for a single key.
+// This is a convenience wrapper that applies each KeyOption to the given key.
+//
+//	query.WithKey("title",
+//	    query.KeyOperator(query.OperatorILike),
+//	    query.KeyValueTransform(func(v string) string { return "%" + v + "%" }),
+//	    query.KeyCommaSplit(),
+//	)
+func WithKey(key string, opts ...KeyOption) OptionQuery {
+	return func(o *optionQuery) {
+		for _, opt := range opts {
+			opt(key, o)
+		}
+	}
+}

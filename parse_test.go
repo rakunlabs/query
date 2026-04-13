@@ -502,6 +502,295 @@ func Test_split(t *testing.T) {
 	}
 }
 
+func TestParseWithKey(t *testing.T) {
+	wrapPercent := func(v string) string { return "%" + v + "%" }
+
+	tests := []struct {
+		name    string
+		value   string
+		opts    []OptionQuery
+		want    *Query
+		wantErr bool
+	}{
+		{
+			name:  "WithKey operator only",
+			value: "name=foo",
+			opts:  []OptionQuery{WithKey("name", KeyOperator(OperatorLike))},
+			want: &Query{
+				Values: map[string][]*ExpressionCmp{
+					"name": {NewExpressionCmp(OperatorLike, "name", "foo")},
+				},
+				Where: []Expression{
+					NewExpressionCmp(OperatorLike, "name", "foo"),
+				},
+			},
+		},
+		{
+			name:  "WithKey value transform only",
+			value: "name=test",
+			opts:  []OptionQuery{WithKey("name", KeyValueTransform(wrapPercent))},
+			want: &Query{
+				Values: map[string][]*ExpressionCmp{
+					"name": {NewExpressionCmp(OperatorEq, "name", "%test%")},
+				},
+				Where: []Expression{
+					NewExpressionCmp(OperatorEq, "name", "%test%"),
+				},
+			},
+		},
+		{
+			name:  "WithKey operator and value transform",
+			value: "name=test",
+			opts: []OptionQuery{
+				WithKey("name",
+					KeyOperator(OperatorILike),
+					KeyValueTransform(wrapPercent),
+				),
+			},
+			want: &Query{
+				Values: map[string][]*ExpressionCmp{
+					"name": {NewExpressionCmp(OperatorILike, "name", "%test%")},
+				},
+				Where: []Expression{
+					NewExpressionCmp(OperatorILike, "name", "%test%"),
+				},
+			},
+		},
+		{
+			name:  "WithKey all three options",
+			value: "name=foo,bar",
+			opts: []OptionQuery{
+				WithKey("name",
+					KeyOperator(OperatorILike),
+					KeyValueTransform(wrapPercent),
+					KeyCommaSplit(),
+				),
+			},
+			want: &Query{
+				Values: map[string][]*ExpressionCmp{
+					"name": {NewExpressionCmp(OperatorILike, "name", []string{"%foo%", "%bar%"})},
+				},
+				Where: []Expression{
+					NewExpressionCmp(OperatorILike, "name", []string{"%foo%", "%bar%"}),
+				},
+			},
+		},
+		{
+			name:  "WithKey comma split only",
+			value: "name=foo,bar",
+			opts:  []OptionQuery{WithKey("name", KeyCommaSplit())},
+			want: &Query{
+				Values: map[string][]*ExpressionCmp{
+					"name": {NewExpressionCmp(OperatorEq, "name", []string{"foo", "bar"})},
+				},
+				Where: []Expression{
+					NewExpressionCmp(OperatorEq, "name", []string{"foo", "bar"}),
+				},
+			},
+		},
+		{
+			name:  "WithKey mixed with standalone options",
+			value: "name=foo&age=30",
+			opts: []OptionQuery{
+				WithKey("name", KeyOperator(OperatorILike), KeyValueTransform(wrapPercent)),
+				WithKeyOperator("age", OperatorGt),
+			},
+			want: &Query{
+				Values: map[string][]*ExpressionCmp{
+					"name": {NewExpressionCmp(OperatorILike, "name", "%foo%")},
+					"age":  {NewExpressionCmp(OperatorGt, "age", "30")},
+				},
+				Where: []Expression{
+					NewExpressionCmp(OperatorILike, "name", "%foo%"),
+					NewExpressionCmp(OperatorGt, "age", "30"),
+				},
+			},
+		},
+		{
+			name:  "WithKey in parenthesized expression",
+			value: "(name=foo|name=bar)",
+			opts: []OptionQuery{
+				WithKey("name",
+					KeyOperator(OperatorLike),
+					KeyValueTransform(wrapPercent),
+				),
+			},
+			want: &Query{
+				Values: map[string][]*ExpressionCmp{
+					"name": {
+						NewExpressionCmp(OperatorLike, "name", "%foo%"),
+						NewExpressionCmp(OperatorLike, "name", "%bar%"),
+					},
+				},
+				Where: []Expression{
+					&ExpressionLogic{
+						Operator: OperatorOr,
+						List: []Expression{
+							NewExpressionCmp(OperatorLike, "name", "%foo%"),
+							NewExpressionCmp(OperatorLike, "name", "%bar%"),
+						},
+					},
+				},
+			},
+		},
+		{
+			name:  "WithKey multiple keys",
+			value: "title=hello&description=world",
+			opts: []OptionQuery{
+				WithKey("title",
+					KeyOperator(OperatorILike),
+					KeyValueTransform(wrapPercent),
+				),
+				WithKey("description",
+					KeyOperator(OperatorILike),
+					KeyValueTransform(wrapPercent),
+				),
+			},
+			want: &Query{
+				Values: map[string][]*ExpressionCmp{
+					"title":       {NewExpressionCmp(OperatorILike, "title", "%hello%")},
+					"description": {NewExpressionCmp(OperatorILike, "description", "%world%")},
+				},
+				Where: []Expression{
+					NewExpressionCmp(OperatorILike, "title", "%hello%"),
+					NewExpressionCmp(OperatorILike, "description", "%world%"),
+				},
+			},
+		},
+		{
+			name:  "WithKey jin operator",
+			value: "tags=admin,editor",
+			opts:  []OptionQuery{WithKey("tags", KeyOperator(OperatorJIn))},
+			want: &Query{
+				Values: map[string][]*ExpressionCmp{
+					"tags": {NewExpressionCmp(OperatorJIn, "tags", []string{"admin", "editor"})},
+				},
+				Where: []Expression{
+					NewExpressionCmp(OperatorJIn, "tags", []string{"admin", "editor"}),
+				},
+			},
+		},
+		{
+			name:  "WithKey does not override explicit bracket operator",
+			value: "name[eq]=foo",
+			opts:  []OptionQuery{WithKey("name", KeyOperator(OperatorLike))},
+			want: &Query{
+				Values: map[string][]*ExpressionCmp{
+					"name": {NewExpressionCmp(OperatorEq, "name", "foo")},
+				},
+				Where: []Expression{
+					NewExpressionCmp(OperatorEq, "name", "foo"),
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := Parse(tt.value, tt.opts...)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Parse() error = %v, wantErr %v", err, tt.wantErr)
+			}
+
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("Parse() = %#v, want %#v", got, tt.want)
+			}
+		})
+	}
+}
+
+// TestParseWithKeyEquivalence verifies that WithKey produces identical results
+// to using the standalone WithKeyOperator, WithKeyValueTransform, and WithCommaSplit functions.
+func TestParseWithKeyEquivalence(t *testing.T) {
+	wrapPercent := func(v string) string { return "%" + v + "%" }
+
+	tests := []struct {
+		name       string
+		value      string
+		withKey    []OptionQuery
+		standalone []OptionQuery
+	}{
+		{
+			name:  "operator equivalence",
+			value: "name=foo",
+			withKey: []OptionQuery{
+				WithKey("name", KeyOperator(OperatorILike)),
+			},
+			standalone: []OptionQuery{
+				WithKeyOperator("name", OperatorILike),
+			},
+		},
+		{
+			name:  "value transform equivalence",
+			value: "name=foo",
+			withKey: []OptionQuery{
+				WithKey("name", KeyValueTransform(wrapPercent)),
+			},
+			standalone: []OptionQuery{
+				WithKeyValueTransform("name", wrapPercent),
+			},
+		},
+		{
+			name:  "comma split equivalence",
+			value: "name=foo,bar",
+			withKey: []OptionQuery{
+				WithKey("name", KeyCommaSplit()),
+			},
+			standalone: []OptionQuery{
+				WithCommaSplit("name"),
+			},
+		},
+		{
+			name:  "all three combined equivalence",
+			value: "name=foo,bar",
+			withKey: []OptionQuery{
+				WithKey("name",
+					KeyOperator(OperatorILike),
+					KeyValueTransform(wrapPercent),
+					KeyCommaSplit(),
+				),
+			},
+			standalone: []OptionQuery{
+				WithKeyOperator("name", OperatorILike),
+				WithKeyValueTransform("name", wrapPercent),
+				WithCommaSplit("name"),
+			},
+		},
+		{
+			name:  "multiple keys equivalence",
+			value: "title=hello&description=world",
+			withKey: []OptionQuery{
+				WithKey("title", KeyOperator(OperatorILike), KeyValueTransform(wrapPercent)),
+				WithKey("description", KeyOperator(OperatorILike), KeyValueTransform(wrapPercent)),
+			},
+			standalone: []OptionQuery{
+				WithKeyOperator("title", OperatorILike),
+				WithKeyValueTransform("title", wrapPercent),
+				WithKeyOperator("description", OperatorILike),
+				WithKeyValueTransform("description", wrapPercent),
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotWithKey, err := Parse(tt.value, tt.withKey...)
+			if err != nil {
+				t.Fatalf("Parse() with WithKey error = %v", err)
+			}
+
+			gotStandalone, err := Parse(tt.value, tt.standalone...)
+			if err != nil {
+				t.Fatalf("Parse() with standalone error = %v", err)
+			}
+
+			if !reflect.DeepEqual(gotWithKey, gotStandalone) {
+				t.Errorf("WithKey result = %#v, standalone result = %#v", gotWithKey, gotStandalone)
+			}
+		})
+	}
+}
+
 func TestParseWithCommaSplit(t *testing.T) {
 	tests := []struct {
 		name    string
