@@ -25,17 +25,23 @@ func newToken(expr Expression, typ WalkType) Token {
 	}
 }
 
+// initialStackSize is the pre-allocated stack depth for Walk.
+// Covers typical nesting levels without heap allocation via the
+// stack-allocated backing array.
+const initialStackSize = 8
+
 // Walk traverses the query tree and calls the provided function for each expression.
 func (q *Query) Walk(fn func(Token) error) error {
-	var stack []*stackHolder
-
-	stack = append(stack, &stackHolder{
+	// Use a fixed-size backing array so shallow trees never heap-allocate.
+	var stackBuf [initialStackSize]stackHolder
+	stack := stackBuf[:1]
+	stack[0] = stackHolder{
 		Current:  q.Where,
 		Position: 0,
-	})
+	}
 
 	for {
-		currentStack := stack[len(stack)-1]
+		currentStack := &stack[len(stack)-1]
 
 		// Check if we need to pop the stack, end of current stack
 		if currentStack.Position >= len(currentStack.Current) {
@@ -47,7 +53,7 @@ func (q *Query) Walk(fn func(Token) error) error {
 
 				break
 			}
-			currentStack = stack[len(stack)-1]
+			currentStack = &stack[len(stack)-1]
 			if err := fn(newToken(currentStack.Current[currentStack.Position], WalkEnd)); err != nil {
 				return err
 			}
@@ -58,7 +64,7 @@ func (q *Query) Walk(fn func(Token) error) error {
 
 		expr := currentStack.Current[currentStack.Position]
 		if e, ok := expr.(*ExpressionLogic); ok {
-			stack = append(stack, &stackHolder{
+			stack = append(stack, stackHolder{
 				Current:  e.List,
 				Position: 0,
 			})

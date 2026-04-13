@@ -99,9 +99,7 @@ func (q *Query) CloneOffset() *uint64 {
 }
 
 func New() *Query {
-	return &Query{
-		Values: make(map[string][]*ExpressionCmp),
-	}
+	return &Query{}
 }
 
 func (q *Query) AddField(fields ...string) *Query {
@@ -157,6 +155,9 @@ func (q *Query) valuesExpression(expr Expression) {
 
 	switch expr := expr.(type) {
 	case *ExpressionCmp:
+		if q.Values == nil {
+			q.Values = make(map[string][]*ExpressionCmp)
+		}
 		q.Values[expr.Field] = append(q.Values[expr.Field], expr)
 	case *ExpressionLogic:
 		for _, e := range expr.List {
